@@ -34,11 +34,25 @@ personale e caricare il risultato su [Intervals.icu](https://intervals.icu).
 
 Requisiti minimi: Android 8.0 (API 26), fotocamera posteriore con flash.
 
+## Build
+
+Apri il progetto in Android Studio (Koala o successivo) e sincronizza, oppure da
+terminale con l'Android SDK configurato:
+
+```
+./gradlew assembleDebug
+```
+
+Un workflow GitHub Actions (`.github/workflows/build-apk.yml`) compila anche un APK
+debug a ogni push su questo branch (o su richiesta manuale, tab *Actions* → *Build
+debug APK* → *Run workflow*) e lo carica come artifact del workflow — utile in
+ambienti senza Android SDK locale.
+
 ## Nota sull'ambiente di build di questa sessione
 
 Questo commit è stato preparato in un ambiente cloud isolato senza Android SDK e
 senza accesso a `dl.google.com` (repository Maven di Google), quindi **non è stato
 possibile eseguire una build Gradle completa per verificarlo**. Il codice è stato
-scritto e rivisto manualmente con attenzione, ma la prima build va fatta in Android
-Studio in locale: è probabile servano piccoli aggiustamenti (versioni di libreria,
-`local.properties`, ecc.).
+scritto e rivisto manualmente con attenzione; la build reale avviene tramite il
+workflow GitHub Actions sopra (i runner hanno SDK Android pre-installato) o in
+Android Studio in locale.
