@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.HrvRm" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
