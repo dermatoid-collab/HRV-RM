@@ -57,6 +57,7 @@ class MeasurementRepository(
             measurementEpochMs = measurement.timestampEpochMs,
             rmssdMs = measurement.rmssdMs,
             sdnnMs = measurement.sdnnMs,
+            hrvScore = measurement.hrvScore,
         )
         val updated = when (result) {
             is UploadResult.Success -> measurement.copy(uploadedToIntervals = true, uploadError = null)

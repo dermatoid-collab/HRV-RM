@@ -21,7 +21,9 @@ personale e caricare il risultato su [Intervals.icu](https://intervals.icu).
    di alcun vendor, ma un metodo pubblicato nella letteratura sportiva (Plews/Buchheit).
 4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
-   Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`).
+   Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`
+   e il campo custom `HRVscore` con il punteggio 0–100; quest'ultimo viene omesso
+   finché la baseline personale non è pronta, cioè per le prime 7 misurazioni).
 
 ## Setup
 

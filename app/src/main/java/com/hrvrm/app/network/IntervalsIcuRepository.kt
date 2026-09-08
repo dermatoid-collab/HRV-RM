@@ -18,7 +18,12 @@ class IntervalsIcuRepository(
 ) {
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
-    suspend fun uploadHrv(measurementEpochMs: Long, rmssdMs: Double, sdnnMs: Double): UploadResult {
+    suspend fun uploadHrv(
+        measurementEpochMs: Long,
+        rmssdMs: Double,
+        sdnnMs: Double,
+        hrvScore: Int?,
+    ): UploadResult {
         val apiKey = settingsStore.apiKey.first()
         val athleteId = settingsStore.athleteId.first()
 
@@ -36,6 +41,7 @@ class IntervalsIcuRepository(
         val body = WellnessUpdate(
             hrv = roundTo(rmssdMs, 2),
             hrvSDNN = roundTo(sdnnMs, 2),
+            hrvScore = hrvScore,
         )
 
         return try {

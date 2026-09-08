@@ -1,5 +1,6 @@
 package com.hrvrm.app.network
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import retrofit2.Response
 import retrofit2.http.Body
@@ -16,6 +17,9 @@ data class WellnessUpdate(
     val hrv: Double? = null,
     val hrvSDNN: Double? = null,
     val restingHR: Int? = null,
+    /** Custom wellness field on this athlete's Intervals.icu account. */
+    @SerialName("HRVscore")
+    val hrvScore: Int? = null,
 )
 
 interface IntervalsIcuApi {

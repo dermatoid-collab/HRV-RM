@@ -16,7 +16,10 @@ object IntervalsIcuClientFactory {
 
     private const val BASE_URL = "https://intervals.icu/"
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
 
     fun create(apiKey: String): IntervalsIcuApi {
         val authInterceptor = okhttp3.Interceptor { chain ->
