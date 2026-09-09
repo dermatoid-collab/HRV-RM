@@ -17,7 +17,24 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        // Checked-in debug key (public password, never used for release) so every debug
+        // build — from CI or a local machine — is signed identically. Without this, each
+        // fresh CI runner auto-generates its own random debug.keystore, so every APK it
+        // builds has a different signature; installing a new build over an old one then
+        // fails with a signature-conflict error instead of updating.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

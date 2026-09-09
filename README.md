@@ -85,6 +85,16 @@ debug a ogni push su questo branch (o su richiesta manuale, tab *Actions* → *B
 debug APK* → *Run workflow*) e lo carica come artifact del workflow — utile in
 ambienti senza Android SDK locale.
 
+Le build debug usano un keystore fisso versionato nel repo (`app/debug.keystore`,
+riferito da `signingConfigs.debug` in `app/build.gradle.kts`) invece di quello
+generato automaticamente da Android Studio/AGP. Senza questo, ogni runner CI
+(macchina pulita ad ogni esecuzione) genera una firma casuale diversa, e installare
+un nuovo APK sopra uno precedente con firma diversa **fallisce silenziosamente** —
+Android rifiuta l'installazione senza un messaggio chiaro. Con il keystore fisso,
+tutte le build (CI o locali) hanno sempre la stessa firma e si aggiornano senza
+problemi. È una chiave di solo debug con password pubblica nota (`android`, lo
+standard AGP) — non è mai usata per una release, non c'è nulla da proteggere.
+
 ## Nota sull'ambiente di build di questa sessione
 
 Questo progetto è stato preparato in un ambiente cloud isolato senza Android SDK e
