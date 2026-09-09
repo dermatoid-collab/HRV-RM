@@ -89,7 +89,7 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
 
             is MeasureUiState.NoFlash ->
                 ErrorContent(
-                    "Questo dispositivo non ha un flash sulla fotocamera posteriore, necessario per la misurazione PPG.",
+                    "This device has no flash on the rear camera, which is required for a PPG reading.",
                     onRetry = viewModel::reset,
                 )
 
@@ -113,29 +113,29 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
 @Composable
 private fun IdleContent(onStart: () -> Unit) {
     Text(
-        "Misura HRV",
+        "Measure HRV",
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
     )
     Spacer(Modifier.height(16.dp))
     Text(
-        "Copri con il polpastrello sia l'obiettivo della fotocamera posteriore sia il flash. " +
-            "Stai fermo e respira normalmente per circa un minuto.",
+        "Cover both the rear camera lens and the flash with your fingertip. " +
+            "Hold still and breathe normally for about a minute.",
         textAlign = TextAlign.Center,
         style = MaterialTheme.typography.bodyLarge,
     )
     Spacer(Modifier.height(32.dp))
     Button(onClick = onStart) {
-        Text("Inizia misurazione")
+        Text("Start measurement")
     }
 }
 
 @Composable
 private fun StabilizingContent(state: MeasureUiState.Stabilizing) {
-    Text("Preparazione…", style = MaterialTheme.typography.headlineSmall)
+    Text("Getting ready…", style = MaterialTheme.typography.headlineSmall)
     Spacer(Modifier.height(16.dp))
     Text(
-        "Copri camera e flash col dito, resta fermo.",
+        "Cover the camera and flash with your finger, hold still.",
         textAlign = TextAlign.Center,
         style = MaterialTheme.typography.bodyMedium,
     )
@@ -153,7 +153,7 @@ private fun StabilizingContent(state: MeasureUiState.Stabilizing) {
 
 @Composable
 private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Unit) {
-    Text("Misurazione in corso", style = MaterialTheme.typography.headlineSmall)
+    Text("Measuring…", style = MaterialTheme.typography.headlineSmall)
     Spacer(Modifier.height(16.dp))
 
     PpgWaveform(
@@ -171,7 +171,7 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
     )
     Spacer(Modifier.height(8.dp))
     Text(
-        state.liveBpm?.let { "${it.roundToInt()} bpm" } ?: "Rilevamento battito…",
+        state.liveBpm?.let { "${it.roundToInt()} bpm" } ?: "Detecting pulse…",
         style = MaterialTheme.typography.bodyLarge,
     )
     Spacer(Modifier.height(8.dp))
@@ -179,7 +179,7 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
 
     Spacer(Modifier.height(24.dp))
     OutlinedButton(onClick = onCancel) {
-        Text("Annulla")
+        Text("Cancel")
     }
 }
 
@@ -197,7 +197,7 @@ private fun LinearProgress(remainingSec: Int, totalSec: Int) {
 private fun ProcessingContent() {
     CircularProgressIndicator()
     Spacer(Modifier.height(16.dp))
-    Text("Calcolo HRV…", style = MaterialTheme.typography.bodyLarge)
+    Text("Computing HRV…", style = MaterialTheme.typography.bodyLarge)
 }
 
 @Composable
@@ -208,7 +208,7 @@ private fun ResultContent(
 ) {
     val measurement = state.measurement
 
-    Text("Risultato", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    Text("Result", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(16.dp))
 
     ScoreBadge(measurement)
@@ -217,11 +217,11 @@ private fun ResultContent(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            MetricRow("Frequenza cardiaca media", "${measurement.meanHrBpm.roundToInt()} bpm")
+            MetricRow("Average heart rate", "${measurement.meanHrBpm.roundToInt()} bpm")
             MetricRow("RMSSD", "${measurement.rmssdMs.roundToInt()} ms")
             MetricRow("SDNN", "${measurement.sdnnMs.roundToInt()} ms")
             MetricRow("pNN50", "${measurement.pnn50Percent.roundToInt()} %")
-            MetricRow("Battiti validi", "${measurement.beatCount} (${measurement.rejectedBeatCount} scartati)")
+            MetricRow("Valid beats", "${measurement.beatCount} (${measurement.rejectedBeatCount} rejected)")
         }
     }
 
@@ -230,7 +230,7 @@ private fun ResultContent(
 
     Spacer(Modifier.height(24.dp))
     Button(onClick = onNewMeasurement) {
-        Text("Nuova misurazione")
+        Text("New measurement")
     }
 }
 
@@ -242,10 +242,10 @@ private fun ScoreBadge(measurement: MeasurementEntity) {
     if (score == null) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(altiniValueText, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-            Text("HRV (scala ln, stile HRV4Training)", style = MaterialTheme.typography.bodySmall)
+            Text("HRV (ln scale, HRV4Training-style)", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(10.dp))
             Text(
-                "Baseline in costruzione: servono almeno 7 misurazioni per lo score e la banda normale.",
+                "Building baseline: at least 7 measurements are needed for the score and normal range.",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -269,14 +269,14 @@ private fun ScoreBadge(measurement: MeasurementEntity) {
         Text("HRV Score", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
         Text(
-            "$altiniValueText (scala ln, stile HRV4Training)",
+            "$altiniValueText (ln scale, HRV4Training-style)",
             style = MaterialTheme.typography.bodySmall,
         )
         val low = measurement.normalRangeLowAltiniScale
         val high = measurement.normalRangeHighAltiniScale
         if (low != null && high != null) {
             Text(
-                "Banda normale: %.1f – %.1f".format(low, high),
+                "Normal range: %.1f – %.1f".format(low, high),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -285,7 +285,7 @@ private fun ScoreBadge(measurement: MeasurementEntity) {
         if (within != null) {
             Spacer(Modifier.height(6.dp))
             Text(
-                if (within) "Nella norma" else "Fuori norma",
+                if (within) "Within normal range" else "Outside normal range",
                 color = if (within) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.labelMedium,
@@ -312,22 +312,22 @@ private fun UploadStatus(measurement: MeasurementEntity, uploadInProgress: Boole
             uploadInProgress -> {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Caricamento su Intervals.icu…")
+                Text("Uploading to Intervals.icu…")
             }
             measurement.uploadedToIntervals -> {
                 Icon(Icons.Filled.CloudDone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
-                Text("Caricato su Intervals.icu")
+                Text("Uploaded to Intervals.icu")
             }
             else -> {
                 Icon(Icons.Filled.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text("Non caricato" + (measurement.uploadError?.let { ": $it" } ?: ""))
+                    Text("Not uploaded" + (measurement.uploadError?.let { ": $it" } ?: ""))
                     OutlinedButton(onClick = onRetry) {
                         Icon(Icons.Filled.CloudUpload, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Riprova upload")
+                        Text("Retry upload")
                     }
                 }
             }
@@ -337,11 +337,11 @@ private fun UploadStatus(measurement: MeasurementEntity, uploadInProgress: Boole
 
 @Composable
 private fun ErrorContent(message: String, onRetry: () -> Unit) {
-    Text("Ops", style = MaterialTheme.typography.headlineSmall)
+    Text("Oops", style = MaterialTheme.typography.headlineSmall)
     Spacer(Modifier.height(16.dp))
     Text(message, textAlign = TextAlign.Center)
     Spacer(Modifier.height(24.dp))
     Button(onClick = onRetry) {
-        Text("Riprova")
+        Text("Retry")
     }
 }

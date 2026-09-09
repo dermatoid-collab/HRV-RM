@@ -28,6 +28,7 @@ import com.hrvrm.app.data.MeasurementEntity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -36,7 +37,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
 
     if (measurements.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Nessuna misurazione ancora. Vai su \"Misura\" per iniziare.")
+            Text("No measurements yet. Go to \"Measure\" to get started.")
         }
         return
     }
@@ -52,7 +53,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
     }
 }
 
-private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")
+private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH)
 
 @Composable
 private fun HistoryRow(measurement: MeasurementEntity) {

@@ -18,7 +18,7 @@ data class WellnessUpdate(
     val hrvSDNN: Double? = null,
     val restingHR: Int? = null,
     /** Custom wellness field on this athlete's Intervals.icu account. */
-    @SerialName("HRVscore")
+    @SerialName("HRVRM")
     val hrvScore: Int? = null,
 )
 

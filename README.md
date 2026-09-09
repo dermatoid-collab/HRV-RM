@@ -1,15 +1,20 @@
 # HRV-RM
 
-App Android nativa (Kotlin + Jetpack Compose) per misurare l'HRV tramite camera-PPG
-(dito su obiettivo + flash della fotocamera posteriore), calcolare un HRV Score
-personale e caricare il risultato su [Intervals.icu](https://intervals.icu).
+App Android nativa (Kotlin + Jetpack Compose, interfaccia in inglese, tema dark-only)
+per misurare l'HRV tramite camera-PPG (dito su obiettivo + flash della fotocamera
+posteriore), calcolare un HRV Score personale e caricare il risultato su
+[Intervals.icu](https://intervals.icu).
 
 ## Come funziona
 
 1. **Acquisizione (`ppg/`)** — `PpgCameraSource` accende il flash e usa CameraX
-   (`ImageAnalysis`) per campionare la luminanza media di ogni frame: con il dito
-   sopra camera e flash, il volume di sangue modula la luce che arriva al sensore,
-   producendo un segnale PPG grezzo.
+   (`ImageAnalysis`, output RGBA) per campionare il **canale rosso** medio di ogni
+   frame: sotto flash, con dito in occlusione, il rosso porta il segnale pulsatile più
+   pulito (il canale luma di default mescola verde/blu, che in quelle condizioni sono
+   quasi solo rumore). Una volta finita la fase di stabilizzazione, l'esposizione e il
+   bilanciamento del bianco vengono **bloccati** (`lockExposure()`, via Camera2Interop)
+   — l'auto-esposizione altrimenti "combatte" attivamente il segnale, rinormalizzando
+   di continuo la luminosità e sopprimendo l'ampiezza che si sta cercando di misurare.
 2. **Elaborazione (`ppg/PpgSignalProcessor`)** — detrend, smoothing, rilevazione dei
    picchi con periodo refrattario e scarto degli artefatti (battiti fisiologicamente
    implausibili o troppo distanti dal ritmo locale) producono una serie di intervalli
@@ -36,16 +41,27 @@ personale e caricare il risultato su [Intervals.icu](https://intervals.icu).
 4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`
-   e il campo custom `HRVscore` con il punteggio 0–100; quest'ultimo viene omesso
-   finché la baseline personale non è pronta, cioè per le prime 7 misurazioni).
+   e il campo custom `HRVRM` con il punteggio 0–100; quest'ultimo viene omesso finché
+   la baseline personale non è pronta, cioè per le prime 7 misurazioni).
+
+## Interfaccia
+
+- **Sempre dark**, nessuna variante chiara (`ui/theme/Theme.kt`).
+- **Solo in inglese** — nessuna stringa localizzata in italiano nell'app.
+- Grafico PPG live con **scroll continuo** (refresh ogni 100ms, non 1s) e linea spessa,
+  disegnato sul segnale già filtrato (detrend + smoothing), non sul dato grezzo.
+- Lo schermo resta acceso per tutta la misurazione (`View.keepScreenOn`): altrimenti,
+  andando in timeout, l'activity va in pausa e CameraX chiude la sessione — spegnendo
+  il flash a metà lettura.
 
 ## Setup
 
 1. Apri il progetto in Android Studio (Koala o successivo).
 2. Su [intervals.icu](https://intervals.icu) vai in *Settings → Developer Settings*
-   per generare l'API Key e trovare il tuo Athlete ID (es. `i123456`).
-3. Nell'app, tab **Impostazioni**, inserisci API Key e Athlete ID.
-4. Tab **Misura** → tieni fermi dito, camera e flash per ~65 secondi (5s di
+   per generare l'API Key e trovare il tuo Athlete ID (es. `i123456`). Se vuoi anche
+   il campo HRV Score, crea un custom wellness field chiamato **`HRVRM`**.
+3. Nell'app, tab **Settings**, inserisci API Key e Athlete ID.
+4. Tab **Measure** → tieni fermi dito, camera e flash per ~65 secondi (5s di
    stabilizzazione + 60s di misurazione).
 
 Requisiti minimi: Android 8.0 (API 26), fotocamera posteriore con flash.
@@ -66,9 +82,9 @@ ambienti senza Android SDK locale.
 
 ## Nota sull'ambiente di build di questa sessione
 
-Questo commit è stato preparato in un ambiente cloud isolato senza Android SDK e
+Questo progetto è stato preparato in un ambiente cloud isolato senza Android SDK e
 senza accesso a `dl.google.com` (repository Maven di Google), quindi **non è stato
-possibile eseguire una build Gradle completa per verificarlo**. Il codice è stato
-scritto e rivisto manualmente con attenzione; la build reale avviene tramite il
-workflow GitHub Actions sopra (i runner hanno SDK Android pre-installato) o in
+possibile eseguire una build Gradle completa per verificarlo localmente**. Il codice
+è stato scritto e rivisto manualmente con attenzione; la build reale avviene tramite
+il workflow GitHub Actions sopra (i runner hanno SDK Android pre-installato) o in
 Android Studio in locale.

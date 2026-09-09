@@ -29,7 +29,7 @@ class IntervalsIcuRepository(
 
         if (apiKey.isNullOrBlank() || athleteId.isNullOrBlank()) {
             return UploadResult.MissingCredentials(
-                "Configura API key e Athlete ID di Intervals.icu nelle Impostazioni.",
+                "Set your Intervals.icu API key and Athlete ID in Settings.",
             )
         }
 

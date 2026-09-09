@@ -1,27 +1,42 @@
 package com.hrvrm.app.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Coral = Color(0xFFFF4D6A)
-private val CoralDark = Color(0xFFFF7A90)
-
-private val LightColors = lightColorScheme(
-    primary = Coral,
-    secondary = Color(0xFF2DD4BF),
-)
+// Always-dark palette (no light variant): matches a measurement app that's mostly used
+// in a dim room first thing in the morning.
+private val Coral = Color(0xFFFF7A90)
+private val OnCoral = Color(0xFF3A0A16)
+private val Teal = Color(0xFF45E0CB)
+private val OnTeal = Color(0xFF0A2320)
+private val Background = Color(0xFF171112)
+private val Surface = Color(0xFF241B1D)
+private val SurfaceVariant = Color(0xFF2C2224)
+private val OnSurface = Color(0xFFF3ECEA)
+private val OnSurfaceVariant = Color(0xFFB8A9AC)
+private val Outline = Color(0xFF382E31)
+private val Error = Color(0xFFFF8A9A)
+private val OnError = Color(0xFF3A0A12)
 
 private val DarkColors = darkColorScheme(
-    primary = CoralDark,
-    secondary = Color(0xFF2DD4BF),
+    primary = Coral,
+    onPrimary = OnCoral,
+    secondary = Teal,
+    onSecondary = OnTeal,
+    background = Background,
+    onBackground = OnSurface,
+    surface = Surface,
+    onSurface = OnSurface,
+    surfaceVariant = SurfaceVariant,
+    onSurfaceVariant = OnSurfaceVariant,
+    outline = Outline,
+    error = Error,
+    onError = OnError,
 )
 
 @Composable
 fun HrvRmTheme(content: @Composable () -> Unit) {
-    val colors = if (isSystemInDarkTheme()) DarkColors else LightColors
-    MaterialTheme(colorScheme = colors, content = content)
+    MaterialTheme(colorScheme = DarkColors, content = content)
 }

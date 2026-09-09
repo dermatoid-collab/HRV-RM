@@ -37,15 +37,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     ) {
         Text("Intervals.icu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Trovi API key e Athlete ID nelle impostazioni del tuo account su intervals.icu, " +
-                "sezione \"Developer Settings\".",
+            "Find your API key and Athlete ID in your intervals.icu account settings, " +
+                "under \"Developer Settings\".",
             style = MaterialTheme.typography.bodyMedium,
         )
 
         OutlinedTextField(
             value = state.athleteId,
             onValueChange = viewModel::onAthleteIdChanged,
-            label = { Text("Athlete ID (es. i123456)") },
+            label = { Text("Athlete ID (e.g. i123456)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -65,9 +65,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Upload automatico", fontWeight = FontWeight.SemiBold)
+                Text("Auto-upload", fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Carica ogni misurazione su Intervals.icu subito dopo averla completata.",
+                    "Upload each measurement to Intervals.icu right after it completes.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -75,12 +75,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         }
 
         Button(onClick = viewModel::save) {
-            Text("Salva")
+            Text("Save")
         }
 
         if (state.saved) {
             Text(
-                "Impostazioni salvate.",
+                "Settings saved.",
                 color = MaterialTheme.colorScheme.primary,
             )
         }

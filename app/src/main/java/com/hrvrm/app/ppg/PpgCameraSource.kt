@@ -1,6 +1,10 @@
 package com.hrvrm.app.ppg
 
 import android.content.Context
+import android.hardware.camera2.CaptureRequest
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -14,9 +18,11 @@ import java.util.concurrent.Executors
  * Drives the rear camera + torch to sample raw PPG intensity values.
  *
  * The finger is expected to cover both the lens and the flash. Each analyzed frame is
- * reduced to the mean luma of its Y plane and emitted as a [PpgSample] via [onSample].
- * Frame processing runs on a dedicated single-thread executor so analysis never blocks
- * the camera pipeline or the UI thread.
+ * reduced to the mean **red channel** value (red carries the strongest, cleanest
+ * pulsatile signal under flash transillumination — see e.g. Kumar et al. and the
+ * iPhysioMeter validation work) and emitted as a [PpgSample] via [onSample]. Frame
+ * processing runs on a dedicated single-thread executor so analysis never blocks the
+ * camera pipeline or the UI thread.
  */
 class PpgCameraSource(
     private val context: Context,
@@ -39,6 +45,10 @@ class PpgCameraSource(
 
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    // RGBA gives direct access to the red channel; the default YUV
+                    // luma output mixes in green/blue, which under flash occlusion
+                    // carry mostly noise and dilute the pulsatile (AC) component.
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build()
 
                 analysis.setAnalyzer(analysisExecutor) { imageProxy ->
@@ -55,6 +65,25 @@ class PpgCameraSource(
         }, ContextCompat.getMainExecutor(context))
     }
 
+    /**
+     * Locks auto-exposure and auto-white-balance at their current (converged) values.
+     * Auto-exposure actively fights a PPG reading: it's a slow AGC loop that keeps
+     * renormalizing brightness, which suppresses or distorts the very amplitude
+     * variation we're trying to measure. Call this once the image has had a moment to
+     * settle after the finger covers the lens (the app does this at the end of its
+     * stabilization countdown, right before it starts collecting samples).
+     */
+    @OptIn(ExperimentalCamera2Interop::class)
+    fun lockExposure() {
+        val currentCamera = camera ?: return
+        val camera2Control = Camera2CameraControl.from(currentCamera.cameraControl)
+        val options = CaptureRequestOptions.Builder()
+            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
+            .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+            .build()
+        camera2Control.setCaptureRequestOptions(options)
+    }
+
     fun stop() {
         camera?.cameraControl?.enableTorch(false)
         cameraProvider?.unbindAll()
@@ -69,10 +98,10 @@ class PpgCameraSource(
 
     private fun processFrame(imageProxy: ImageProxy) {
         try {
-            val yPlane = imageProxy.planes[0]
-            val buffer = yPlane.buffer
-            val rowStride = yPlane.rowStride
-            val pixelStride = yPlane.pixelStride
+            val plane = imageProxy.planes[0]
+            val buffer = plane.buffer
+            val rowStride = plane.rowStride
+            val pixelStride = plane.pixelStride
             val width = imageProxy.width
             val height = imageProxy.height
 
@@ -88,6 +117,7 @@ class PpgCameraSource(
                 var x = 0
                 val rowStart = y * rowStride
                 while (x < width) {
+                    // RGBA_8888: red is the first byte of each pixel.
                     val index = rowStart + x * pixelStride
                     if (index < buffer.capacity()) {
                         sum += buffer.get(index).toInt() and 0xFF

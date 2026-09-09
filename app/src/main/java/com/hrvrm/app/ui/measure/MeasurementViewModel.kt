@@ -34,7 +34,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
     init {
         cameraSource.onSample = { sample -> if (collecting) samples.add(sample) }
         cameraSource.onError = { throwable ->
-            _uiState.value = MeasureUiState.Error(throwable.message ?: "Errore della fotocamera.")
+            _uiState.value = MeasureUiState.Error(throwable.message ?: "Camera error.")
         }
     }
 
@@ -47,7 +47,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
             start(lifecycleOwner)
         } else {
             _uiState.value = MeasureUiState.Error(
-                "Serve il permesso fotocamera per misurare l'HRV.",
+                "Camera permission is required to measure HRV.",
             )
         }
     }
@@ -71,23 +71,34 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
 
             samples.clear()
             collecting = true
+            // Exposure has had the whole stabilization countdown to converge on the
+            // lit fingertip; lock it now so auto-exposure doesn't fight the reading.
+            cameraSource.lockExposure()
 
-            for (remaining in MEASURE_SEC downTo 1) {
-                delay(1000)
+            val measurementStartMs = System.currentTimeMillis()
+            val totalMs = MEASURE_SEC * 1000L
+
+            while (true) {
+                delay(TICK_INTERVAL_MS)
+                val elapsedMs = System.currentTimeMillis() - measurementStartMs
+                val remainingSec = ((totalMs - elapsedMs).coerceAtLeast(0) + 999) / 1000
+
                 val snapshot = synchronized(samples) { samples.toList() }
-                val recentWindowMs = 8000L
-                val cutoff = (snapshot.lastOrNull()?.timestampMs ?: 0L) - recentWindowMs
+                val cutoff = (snapshot.lastOrNull()?.timestampMs ?: 0L) - WAVEFORM_WINDOW_MS
                 val windowed = snapshot.filter { it.timestampMs >= cutoff }
                 val result = if (windowed.size >= 8) processor.process(windowed) else null
+
                 _uiState.value = MeasureUiState.Measuring(
-                    remainingSec = remaining - 1,
+                    remainingSec = remainingSec.toInt(),
                     totalSec = MEASURE_SEC,
                     liveBpm = result?.let { estimateBpm(it) },
                     // Show the detrended/smoothed trace, not the raw camera signal: the raw
-                    // luma has enough baseline drift and quantization noise to look "unstable"
-                    // even when the underlying pulse is clean.
-                    waveform = result?.filteredSignal?.takeLast(150) ?: emptyList(),
+                    // red-channel value has enough baseline drift and quantization noise to
+                    // look "unstable" even when the underlying pulse is clean.
+                    waveform = result?.filteredSignal?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
                 )
+
+                if (elapsedMs >= totalMs) break
             }
 
             collecting = false
@@ -133,7 +144,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
 
         if (metrics == null) {
             _uiState.value = MeasureUiState.Error(
-                "Segnale insufficiente per calcolare l'HRV. Tieni fermo il dito su camera e flash e riprova.",
+                "Not enough signal to compute HRV. Hold your finger still over the camera and flash, then try again.",
             )
             return
         }
@@ -157,5 +168,9 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
     companion object {
         const val STABILIZE_SEC = 5
         const val MEASURE_SEC = 60
+        /** Waveform/BPM refresh cadence — fast enough to read as a continuously scrolling trace. */
+        const val TICK_INTERVAL_MS = 100L
+        const val WAVEFORM_WINDOW_MS = 8000L
+        const val WAVEFORM_POINTS = 220
     }
 }

@@ -23,9 +23,9 @@ import com.hrvrm.app.ui.measure.MeasureScreen
 import com.hrvrm.app.ui.settings.SettingsScreen
 
 private sealed class Destination(val route: String, val label: String) {
-    data object Measure : Destination("measure", "Misura")
-    data object History : Destination("history", "Storico")
-    data object Settings : Destination("settings", "Impostazioni")
+    data object Measure : Destination("measure", "Measure")
+    data object History : Destination("history", "History")
+    data object Settings : Destination("settings", "Settings")
 }
 
 private val destinations = listOf(Destination.Measure, Destination.History, Destination.Settings)
