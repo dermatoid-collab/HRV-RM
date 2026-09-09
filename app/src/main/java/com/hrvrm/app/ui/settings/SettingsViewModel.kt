@@ -20,6 +20,8 @@ data class SettingsUiState(
     val saved: Boolean = false,
     val testInProgress: Boolean = false,
     val testResult: String? = null,
+    val testHrvInProgress: Boolean = false,
+    val testHrvResult: String? = null,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -80,5 +82,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
             _uiState.update { it.copy(testInProgress = false, testResult = message) }
         }
+    }
+
+    /**
+     * Writes a placeholder value (50) to today's HRVRM field only — lets you confirm
+     * the custom field itself accepts writes without waiting for a real 7-measurement
+     * baseline. Leaves hrv/hrvSDNN/restingHR alone, so today's real values are untouched.
+     */
+    fun sendTestHrvValue() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(testHrvInProgress = true, testHrvResult = null) }
+            val result = intervalsRepository.sendTestHrvScore(TEST_HRV_VALUE)
+            val message = when (result) {
+                is UploadResult.Success -> "Sent $TEST_HRV_VALUE to today's HRV-RM field — check Intervals.icu."
+                is UploadResult.MissingCredentials -> result.message
+                is UploadResult.Failure -> result.message
+            }
+            _uiState.update { it.copy(testHrvInProgress = false, testHrvResult = message) }
+        }
+    }
+
+    private companion object {
+        const val TEST_HRV_VALUE = 50
     }
 }

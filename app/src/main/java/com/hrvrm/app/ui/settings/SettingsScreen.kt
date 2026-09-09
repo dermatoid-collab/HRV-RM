@@ -105,5 +105,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
             )
         }
+
+        OutlinedButton(onClick = viewModel::sendTestHrvValue, enabled = !state.testHrvInProgress) {
+            if (state.testHrvInProgress) {
+                CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp)
+            }
+            Text("Send test HRV-RM value to today")
+        }
+
+        state.testHrvResult?.let { result ->
+            val isSuccess = result.startsWith("Sent")
+            Text(
+                result,
+                fontSize = 13.sp,
+                color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }

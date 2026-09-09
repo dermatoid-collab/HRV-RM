@@ -93,6 +93,39 @@ class IntervalsIcuRepository(
         }
     }
 
+    /**
+     * Writes a placeholder value to today's HRVRM custom field only (hrv/hrvSDNN/
+     * restingHR are left unset, so today's already-uploaded real values aren't
+     * touched — PUT only sets the fields present in the body). Lets you confirm the
+     * custom field itself accepts writes without waiting for a 7-measurement baseline.
+     */
+    suspend fun sendTestHrvScore(testValue: Int): UploadResult {
+        val apiKey = settingsStore.apiKey.first()
+        val athleteId = settingsStore.athleteId.first()
+
+        if (apiKey.isNullOrBlank() || athleteId.isNullOrBlank()) {
+            return UploadResult.MissingCredentials(
+                "Set your Intervals.icu API key and Athlete ID first.",
+            )
+        }
+
+        val today = LocalDate.now().format(dateFormatter)
+        val body = WellnessUpdate(hrvScore = testValue)
+
+        return try {
+            val api = IntervalsIcuClientFactory.create(apiKey)
+            val response = api.updateWellness(athleteId, today, body)
+            if (response.isSuccessful) {
+                UploadResult.Success
+            } else {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                UploadResult.Failure("HTTP ${response.code()}: $errorBody")
+            }
+        } catch (e: Exception) {
+            UploadResult.Failure(e.message ?: e.toString())
+        }
+    }
+
     private fun roundTo(value: Double, decimals: Int): Double {
         val factor = Math.pow(10.0, decimals.toDouble())
         return Math.round(value * factor) / factor
