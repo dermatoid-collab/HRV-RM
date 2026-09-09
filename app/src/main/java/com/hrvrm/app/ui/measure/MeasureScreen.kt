@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
+import com.hrvrm.app.hrv.HrvScoreCalculator
 import kotlin.math.roundToInt
 
 @Composable
@@ -245,7 +246,8 @@ private fun ScoreBadge(measurement: MeasurementEntity) {
             Text("HRV (ln scale, HRV4Training-style)", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(10.dp))
             Text(
-                "Building baseline: at least 7 measurements are needed for the score and normal range.",
+                "Building baseline: at least ${HrvScoreCalculator.MIN_BASELINE_SAMPLES} measurements " +
+                    "are needed for the score and normal range.",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
             )

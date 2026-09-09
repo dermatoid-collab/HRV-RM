@@ -41,8 +41,9 @@ data class HrvScoreResult(
 /**
  * Mirrors HRV4Training's published methodology (Altini, "Daily score, baseline and normal
  * range: an overview") rather than a naive single-day z-score:
- *  - the value compared to baseline is a 7-reading rolling average of ln(RMSSD), not a
- *    single day's raw reading — one noisy morning shouldn't swing the result;
+ *  - the value compared to baseline is a rolling average of the last [SMOOTHING_WINDOW_SIZE]
+ *    readings' ln(RMSSD), not a single day's raw reading — one noisy morning shouldn't
+ *    swing the result;
  *  - "normal range" is a narrow band, +-0.5x the day-to-day SD of the last up to 60
  *    readings (the "smallest worthwhile change"), not a wide +-2.5 SD;
  *  - the 0-100 [HrvScoreResult.score] is kept only as a continuous number for a trend
@@ -54,7 +55,7 @@ data class HrvScoreResult(
  */
 object HrvScoreCalculator {
 
-    const val MIN_BASELINE_SAMPLES = 7
+    const val MIN_BASELINE_SAMPLES = 3
     const val BASELINE_WINDOW_SIZE = 60
     const val SMOOTHING_WINDOW_SIZE = 7
     const val NORMAL_RANGE_SD_MULTIPLIER = 0.5

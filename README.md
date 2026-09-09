@@ -35,14 +35,17 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
      = 2×ln(RMSSD) mediato, tipicamente 6–10 per un adulto) insieme ai confini della
      banda nella stessa scala — utile per chi è abituato a leggere quei numeri, anche
      se è puramente un fattore di scala cosmetico (uno z-score non cambia).
-   - servono almeno 7 misurazioni precedenti prima che score/banda siano disponibili.
+   - servono almeno 3 misurazioni precedenti prima che score/banda siano disponibili
+     (`HrvScoreCalculator.MIN_BASELINE_SAMPLES`) — soglia bassa apposta per vedere un
+     valore reale presto, a costo di più rumore statistico nei primi giorni; sale in
+     affidabilità man mano che si arriva verso le 60 misurazioni della finestra mobile.
    Non è una riproduzione dell'algoritmo proprietario di HRV4Training (chiuso), ma la
    stessa logica metodologica, implementata da zero.
 4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`/
    `restingHR` e il campo custom `HRVRM` con il punteggio 0–100; quest'ultimo viene
-   omesso finché la baseline personale non è pronta, cioè per le prime 7 misurazioni).
+   omesso finché la baseline personale non è pronta, cioè per le prime 3 misurazioni).
    Nella tab Settings, il pulsante **"Test connection"** fa una chiamata di sola
    lettura (`GET /api/v1/athlete/{id}/events`, stesso endpoint collaudato usato da
    ERG-RM per leggere il calendario) per verificare che API key e Athlete ID
