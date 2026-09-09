@@ -6,16 +6,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -74,14 +78,31 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             Switch(checked = state.autoUpload, onCheckedChange = viewModel::onAutoUploadChanged)
         }
 
-        Button(onClick = viewModel::save) {
-            Text("Save")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = viewModel::save) {
+                Text("Save")
+            }
+            OutlinedButton(onClick = viewModel::testConnection, enabled = !state.testInProgress) {
+                if (state.testInProgress) {
+                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp)
+                }
+                Text("Test connection")
+            }
         }
 
-        if (state.saved) {
+        if (state.saved && state.testResult == null) {
             Text(
                 "Settings saved.",
                 color = MaterialTheme.colorScheme.primary,
+            )
+        }
+
+        state.testResult?.let { result ->
+            val isSuccess = result.startsWith("Connected")
+            Text(
+                result,
+                fontSize = 13.sp,
+                color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
             )
         }
     }

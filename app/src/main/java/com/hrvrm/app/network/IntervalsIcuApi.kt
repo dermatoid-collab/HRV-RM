@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.PUT
 import retrofit2.http.Path
 
@@ -29,5 +30,11 @@ interface IntervalsIcuApi {
         @Path("athleteId") athleteId: String,
         @Path("date") isoDate: String,
         @Body body: WellnessUpdate,
+    ): Response<Unit>
+
+    /** Cheap read-only call used to validate that the API key and athlete ID actually match. */
+    @GET("api/v1/athlete/{athleteId}/profile")
+    suspend fun getProfile(
+        @Path("athleteId") athleteId: String,
     ): Response<Unit>
 }

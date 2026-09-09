@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
+import com.hrvrm.app.network.IntervalsIcuRepository
+import com.hrvrm.app.network.UploadResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,11 +18,14 @@ data class SettingsUiState(
     val athleteId: String = "",
     val autoUpload: Boolean = true,
     val saved: Boolean = false,
+    val testInProgress: Boolean = false,
+    val testResult: String? = null,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsStore = (getApplication<Application>() as HrvRmApp).container.settingsStore
+    private val intervalsRepository = IntervalsIcuRepository(settingsStore)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -36,11 +41,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onApiKeyChanged(value: String) {
-        _uiState.value = _uiState.value.copy(apiKey = value, saved = false)
+        _uiState.value = _uiState.value.copy(apiKey = value, saved = false, testResult = null)
     }
 
     fun onAthleteIdChanged(value: String) {
-        _uiState.value = _uiState.value.copy(athleteId = value, saved = false)
+        _uiState.value = _uiState.value.copy(athleteId = value, saved = false, testResult = null)
     }
 
     fun onAutoUploadChanged(value: Boolean) {
@@ -52,6 +57,28 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             settingsStore.setCredentials(state.apiKey, state.athleteId)
             _uiState.value = _uiState.value.copy(saved = true)
+        }
+    }
+
+    /**
+     * Saves the current fields, then makes a read-only API call to check they actually
+     * work — an intervals.icu API key only works for the athlete who generated it, so a
+     * mismatched Athlete ID looks exactly like a "wrong key" 403 on upload. This isolates
+     * that without needing a full measurement to find out.
+     */
+    fun testConnection() {
+        val state = _uiState.value
+        viewModelScope.launch {
+            settingsStore.setCredentials(state.apiKey, state.athleteId)
+            _uiState.update { it.copy(saved = true, testInProgress = true, testResult = null) }
+
+            val result = intervalsRepository.testConnection()
+            val message = when (result) {
+                is UploadResult.Success -> "Connected — API key and Athlete ID match."
+                is UploadResult.MissingCredentials -> result.message
+                is UploadResult.Failure -> result.message
+            }
+            _uiState.update { it.copy(testInProgress = false, testResult = message) }
         }
     }
 }

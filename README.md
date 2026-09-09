@@ -40,9 +40,14 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    stessa logica metodologica, implementata da zero.
 4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
-   Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`
-   e il campo custom `HRVRM` con il punteggio 0–100; quest'ultimo viene omesso finché
-   la baseline personale non è pronta, cioè per le prime 7 misurazioni).
+   Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`/
+   `restingHR` e il campo custom `HRVRM` con il punteggio 0–100; quest'ultimo viene
+   omesso finché la baseline personale non è pronta, cioè per le prime 7 misurazioni).
+   Nella tab Settings, il pulsante **"Test connection"** fa una chiamata di sola
+   lettura (`GET /api/v1/athlete/{id}/profile`) per verificare che API key e Athlete
+   ID corrispondano *prima* di fare una misurazione intera — utile perché una API key
+   di intervals.icu è valida solo per l'atleta che l'ha generata: un Athlete ID
+   sbagliato dà lo stesso identico `403 Access denied` di una key sbagliata.
 
 ## Interfaccia
 

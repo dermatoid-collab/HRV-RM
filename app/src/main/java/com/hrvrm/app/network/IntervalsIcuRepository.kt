@@ -23,6 +23,7 @@ class IntervalsIcuRepository(
         rmssdMs: Double,
         sdnnMs: Double,
         hrvScore: Int?,
+        restingHrBpm: Int?,
     ): UploadResult {
         val apiKey = settingsStore.apiKey.first()
         val athleteId = settingsStore.athleteId.first()
@@ -41,12 +42,43 @@ class IntervalsIcuRepository(
         val body = WellnessUpdate(
             hrv = roundTo(rmssdMs, 2),
             hrvSDNN = roundTo(sdnnMs, 2),
+            restingHR = restingHrBpm,
             hrvScore = hrvScore,
         )
 
         return try {
             val api = IntervalsIcuClientFactory.create(apiKey)
             val response = api.updateWellness(athleteId, isoDate, body)
+            if (response.isSuccessful) {
+                UploadResult.Success
+            } else {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                UploadResult.Failure("HTTP ${response.code()}: $errorBody")
+            }
+        } catch (e: Exception) {
+            UploadResult.Failure(e.message ?: e.toString())
+        }
+    }
+
+    /**
+     * Cheap read-only check that the saved API key and Athlete ID actually match — an
+     * intervals.icu API key is scoped to the athlete who generated it, so a 403 on the
+     * (write) wellness endpoint is often really "this key isn't valid for this athlete
+     * ID" rather than a credentials typo. Hitting a read endpoint first isolates that.
+     */
+    suspend fun testConnection(): UploadResult {
+        val apiKey = settingsStore.apiKey.first()
+        val athleteId = settingsStore.athleteId.first()
+
+        if (apiKey.isNullOrBlank() || athleteId.isNullOrBlank()) {
+            return UploadResult.MissingCredentials(
+                "Set your Intervals.icu API key and Athlete ID first.",
+            )
+        }
+
+        return try {
+            val api = IntervalsIcuClientFactory.create(apiKey)
+            val response = api.getProfile(athleteId)
             if (response.isSuccessful) {
                 UploadResult.Success
             } else {

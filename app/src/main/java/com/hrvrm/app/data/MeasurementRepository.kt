@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.math.roundToInt
 
 /** Coordinates local storage of measurements with computing the HRV score and, optionally, upload. */
 class MeasurementRepository(
@@ -62,6 +63,7 @@ class MeasurementRepository(
             rmssdMs = measurement.rmssdMs,
             sdnnMs = measurement.sdnnMs,
             hrvScore = measurement.hrvScore,
+            restingHrBpm = measurement.meanHrBpm.roundToInt(),
         )
         val updated = when (result) {
             is UploadResult.Success -> measurement.copy(uploadedToIntervals = true, uploadError = null)
