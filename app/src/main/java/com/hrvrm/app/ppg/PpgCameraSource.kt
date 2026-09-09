@@ -75,13 +75,20 @@ class PpgCameraSource(
      */
     @OptIn(ExperimentalCamera2Interop::class)
     fun lockExposure() {
-        val currentCamera = camera ?: return
-        val camera2Control = Camera2CameraControl.from(currentCamera.cameraControl)
-        val options = CaptureRequestOptions.Builder()
-            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
-            .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
-            .build()
-        camera2Control.setCaptureRequestOptions(options)
+        // Best-effort: a cleaner signal is nice to have, but failing to lock exposure
+        // must never abort the measurement (or, worse, crash it — this used to be an
+        // uncaught exception on the ViewModel's coroutine).
+        try {
+            val currentCamera = camera ?: return
+            val camera2Control = Camera2CameraControl.from(currentCamera.cameraControl)
+            val options = CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+                .build()
+            camera2Control.setCaptureRequestOptions(options)
+        } catch (_: Throwable) {
+            // Ignore — the measurement continues with auto-exposure still active.
+        }
     }
 
     fun stop() {

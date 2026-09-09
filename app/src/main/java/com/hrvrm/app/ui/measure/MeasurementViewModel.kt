@@ -11,6 +11,7 @@ import com.hrvrm.app.ppg.PpgProcessingResult
 import com.hrvrm.app.ppg.PpgSample
 import com.hrvrm.app.ppg.PpgSignalProcessor
 import java.util.Collections
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,46 +65,54 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
 
         measureJob?.cancel()
         measureJob = viewModelScope.launch {
-            for (remaining in STABILIZE_SEC downTo 1) {
-                _uiState.value = MeasureUiState.Stabilizing(remaining, STABILIZE_SEC)
-                delay(1000)
+            try {
+                for (remaining in STABILIZE_SEC downTo 1) {
+                    _uiState.value = MeasureUiState.Stabilizing(remaining, STABILIZE_SEC)
+                    delay(1000)
+                }
+
+                samples.clear()
+                collecting = true
+                // Exposure has had the whole stabilization countdown to converge on the
+                // lit fingertip; lock it now so auto-exposure doesn't fight the reading.
+                cameraSource.lockExposure()
+
+                val measurementStartMs = System.currentTimeMillis()
+                val totalMs = MEASURE_SEC * 1000L
+
+                while (true) {
+                    delay(TICK_INTERVAL_MS)
+                    val elapsedMs = System.currentTimeMillis() - measurementStartMs
+                    val remainingSec = ((totalMs - elapsedMs).coerceAtLeast(0) + 999) / 1000
+
+                    val snapshot = synchronized(samples) { samples.toList() }
+                    val cutoff = (snapshot.lastOrNull()?.timestampMs ?: 0L) - WAVEFORM_WINDOW_MS
+                    val windowed = snapshot.filter { it.timestampMs >= cutoff }
+                    val result = if (windowed.size >= 8) processor.process(windowed) else null
+
+                    _uiState.value = MeasureUiState.Measuring(
+                        remainingSec = remainingSec.toInt(),
+                        totalSec = MEASURE_SEC,
+                        liveBpm = result?.let { estimateBpm(it) },
+                        // Show the detrended/smoothed trace, not the raw camera signal: the raw
+                        // red-channel value has enough baseline drift and quantization noise to
+                        // look "unstable" even when the underlying pulse is clean.
+                        waveform = result?.filteredSignal?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
+                    )
+
+                    if (elapsedMs >= totalMs) break
+                }
+
+                collecting = false
+                cameraSource.stop()
+                finishMeasurement()
+            } catch (c: CancellationException) {
+                throw c // cancel() already resets state; don't turn that into an error.
+            } catch (t: Throwable) {
+                collecting = false
+                cameraSource.stop()
+                _uiState.value = MeasureUiState.Error(t.message ?: "Something went wrong during the measurement.")
             }
-
-            samples.clear()
-            collecting = true
-            // Exposure has had the whole stabilization countdown to converge on the
-            // lit fingertip; lock it now so auto-exposure doesn't fight the reading.
-            cameraSource.lockExposure()
-
-            val measurementStartMs = System.currentTimeMillis()
-            val totalMs = MEASURE_SEC * 1000L
-
-            while (true) {
-                delay(TICK_INTERVAL_MS)
-                val elapsedMs = System.currentTimeMillis() - measurementStartMs
-                val remainingSec = ((totalMs - elapsedMs).coerceAtLeast(0) + 999) / 1000
-
-                val snapshot = synchronized(samples) { samples.toList() }
-                val cutoff = (snapshot.lastOrNull()?.timestampMs ?: 0L) - WAVEFORM_WINDOW_MS
-                val windowed = snapshot.filter { it.timestampMs >= cutoff }
-                val result = if (windowed.size >= 8) processor.process(windowed) else null
-
-                _uiState.value = MeasureUiState.Measuring(
-                    remainingSec = remainingSec.toInt(),
-                    totalSec = MEASURE_SEC,
-                    liveBpm = result?.let { estimateBpm(it) },
-                    // Show the detrended/smoothed trace, not the raw camera signal: the raw
-                    // red-channel value has enough baseline drift and quantization noise to
-                    // look "unstable" even when the underlying pulse is clean.
-                    waveform = result?.filteredSignal?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
-                )
-
-                if (elapsedMs >= totalMs) break
-            }
-
-            collecting = false
-            cameraSource.stop()
-            finishMeasurement()
         }
     }
 
