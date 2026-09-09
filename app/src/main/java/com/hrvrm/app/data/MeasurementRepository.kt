@@ -40,6 +40,10 @@ class MeasurementRepository(
             beatCount = metrics.beatCount,
             rejectedBeatCount = rejectedBeatCount,
             hrvScore = scoreResult.score,
+            withinNormalRange = scoreResult.withinNormalRange,
+            altiniScaleValue = scoreResult.altiniScaleValue,
+            normalRangeLowAltiniScale = scoreResult.normalRangeLowAltiniScale,
+            normalRangeHighAltiniScale = scoreResult.normalRangeHighAltiniScale,
             ibiSeriesJson = json.encodeToString(cleanIbiMs),
         )
 

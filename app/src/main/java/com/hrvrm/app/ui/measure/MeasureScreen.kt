@@ -200,7 +200,7 @@ private fun ResultContent(
     Text("Risultato", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(16.dp))
 
-    ScoreBadge(measurement.hrvScore)
+    ScoreBadge(measurement)
 
     Spacer(Modifier.height(24.dp))
 
@@ -224,13 +224,21 @@ private fun ResultContent(
 }
 
 @Composable
-private fun ScoreBadge(score: Int?) {
+private fun ScoreBadge(measurement: MeasurementEntity) {
+    val altiniValueText = "%.1f".format(measurement.altiniScaleValue)
+    val score = measurement.hrvScore
+
     if (score == null) {
-        Text(
-            "Baseline in costruzione: servono almeno 7 misurazioni per calcolare l'HRV Score.",
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(altiniValueText, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+            Text("HRV (scala ln, stile HRV4Training)", style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Baseline in costruzione: servono almeno 7 misurazioni per lo score e la banda normale.",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         return
     }
 
@@ -248,6 +256,30 @@ private fun ScoreBadge(score: Int?) {
             color = color,
         )
         Text("HRV Score", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "$altiniValueText (scala ln, stile HRV4Training)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        val low = measurement.normalRangeLowAltiniScale
+        val high = measurement.normalRangeHighAltiniScale
+        if (low != null && high != null) {
+            Text(
+                "Banda normale: %.1f – %.1f".format(low, high),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val within = measurement.withinNormalRange
+        if (within != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (within) "Nella norma" else "Fuori norma",
+                color = if (within) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
 

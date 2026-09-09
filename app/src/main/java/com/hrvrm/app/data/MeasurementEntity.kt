@@ -18,6 +18,12 @@ data class MeasurementEntity(
     val rejectedBeatCount: Int,
     /** Null while the personal baseline is still being built up (fewer than 7 prior readings). */
     val hrvScore: Int?,
+    /** Null while building baseline; true/false once ready — see HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER. */
+    val withinNormalRange: Boolean?,
+    /** Smoothed value on an HRV4Training-like ln(RMSSD^2) display scale (~6-10 for typical adults). */
+    val altiniScaleValue: Double,
+    val normalRangeLowAltiniScale: Double?,
+    val normalRangeHighAltiniScale: Double?,
     /** Clean IBI series (ms), JSON-encoded, kept for history detail / future re-analysis. */
     val ibiSeriesJson: String,
     val uploadedToIntervals: Boolean = false,

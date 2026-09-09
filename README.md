@@ -15,10 +15,24 @@ personale e caricare il risultato su [Intervals.icu](https://intervals.icu).
    implausibili o troppo distanti dal ritmo locale) producono una serie di intervalli
    RR "puliti".
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
-   standard. L'**HRV Score** (0–100) confronta il RMSSD di oggi (in scala logaritmica)
-   con la baseline personale mobile (media/deviazione standard delle ultime misurazioni,
-   minimo 7 per essere attendibile). Non è una riproduzione dell'algoritmo proprietario
-   di alcun vendor, ma un metodo pubblicato nella letteratura sportiva (Plews/Buchheit).
+   standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
+   "Daily score, baseline and normal range: an overview") invece di uno z-score
+   sul singolo giorno:
+   - il valore confrontato con la baseline è una **media mobile delle ultime 7
+     misurazioni** di ln(RMSSD), non la lettura grezza del giorno;
+   - la **banda "normale"** è stretta, ±0,5 deviazioni standard giorno-su-giorno
+     calcolate sulle ultime 60 misurazioni (la "smallest worthwhile change" della
+     letteratura sportiva), non ±2,5 SD;
+   - oltre allo **score continuo 0–100** (utile per un grafico di trend), l'app espone
+     un flag qualitativo `withinNormalRange` (nella norma / fuori norma) — il segnale
+     che dovrebbe davvero guidare le decisioni, non il numero in sé;
+   - viene mostrato anche un valore in **scala "stile HRV4Training"** (`altiniScaleValue`
+     = 2×ln(RMSSD) mediato, tipicamente 6–10 per un adulto) insieme ai confini della
+     banda nella stessa scala — utile per chi è abituato a leggere quei numeri, anche
+     se è puramente un fattore di scala cosmetico (uno z-score non cambia).
+   - servono almeno 7 misurazioni precedenti prima che score/banda siano disponibili.
+   Non è una riproduzione dell'algoritmo proprietario di HRV4Training (chiuso), ma la
+   stessa logica metodologica, implementata da zero.
 4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`
