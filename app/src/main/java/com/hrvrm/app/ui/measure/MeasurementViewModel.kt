@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
 import com.hrvrm.app.hrv.HrvMetricsCalculator
 import com.hrvrm.app.ppg.PpgCameraSource
+import com.hrvrm.app.ppg.PpgProcessingResult
 import com.hrvrm.app.ppg.PpgSample
 import com.hrvrm.app.ppg.PpgSignalProcessor
 import java.util.Collections
@@ -74,13 +75,18 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
             for (remaining in MEASURE_SEC downTo 1) {
                 delay(1000)
                 val snapshot = synchronized(samples) { samples.toList() }
-                val liveBpm = estimateLiveBpm(snapshot)
-                val waveformTail = snapshot.takeLast(150).map { it.intensity }
+                val recentWindowMs = 8000L
+                val cutoff = (snapshot.lastOrNull()?.timestampMs ?: 0L) - recentWindowMs
+                val windowed = snapshot.filter { it.timestampMs >= cutoff }
+                val result = if (windowed.size >= 8) processor.process(windowed) else null
                 _uiState.value = MeasureUiState.Measuring(
                     remainingSec = remaining - 1,
                     totalSec = MEASURE_SEC,
-                    liveBpm = liveBpm,
-                    waveform = waveformTail,
+                    liveBpm = result?.let { estimateBpm(it) },
+                    // Show the detrended/smoothed trace, not the raw camera signal: the raw
+                    // luma has enough baseline drift and quantization noise to look "unstable"
+                    // even when the underlying pulse is clean.
+                    waveform = result?.filteredSignal?.takeLast(150) ?: emptyList(),
                 )
             }
 
@@ -112,12 +118,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    private fun estimateLiveBpm(snapshot: List<PpgSample>): Double? {
-        if (snapshot.size < 30) return null
-        val recentWindowMs = 8000L
-        val cutoff = snapshot.last().timestampMs - recentWindowMs
-        val windowed = snapshot.filter { it.timestampMs >= cutoff }
-        val result = processor.process(windowed)
+    private fun estimateBpm(result: PpgProcessingResult): Double? {
         val ibis = result.cleanIbiMs
         if (ibis.isEmpty()) return null
         val meanIbi = ibis.takeLast(5).average()
