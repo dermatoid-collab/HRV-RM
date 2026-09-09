@@ -44,8 +44,10 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
 4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`/
-   `restingHR` e il campo custom `HRVRM` con il punteggio 0–100; quest'ultimo viene
-   omesso finché la baseline personale non è pronta, cioè per le prime 3 misurazioni).
+   `restingHR` e il campo custom `HRVRM` con il valore in **scala ln stile
+   HRV4Training** — `altiniScaleValue`, es. 9.1 — non lo score 0–100 comparativo:
+   quello richiede uno storico, il valore in scala ln invece è sempre disponibile,
+   fin dalla primissima misurazione, quindi `HRVRM` si popola da subito).
    Nella tab Settings, il pulsante **"Test connection"** fa una chiamata di sola
    lettura (`GET /api/v1/athlete/{id}/events`, stesso endpoint collaudato usato da
    ERG-RM per leggere il calendario) per verificare che API key e Athlete ID

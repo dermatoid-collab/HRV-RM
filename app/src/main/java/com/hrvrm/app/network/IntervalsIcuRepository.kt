@@ -23,7 +23,7 @@ class IntervalsIcuRepository(
         measurementEpochMs: Long,
         rmssdMs: Double,
         sdnnMs: Double,
-        hrvScore: Int?,
+        hrvRmValue: Double,
         restingHrBpm: Int?,
     ): UploadResult {
         val apiKey = settingsStore.apiKey.first()
@@ -44,7 +44,7 @@ class IntervalsIcuRepository(
             hrv = roundTo(rmssdMs, 2),
             hrvSDNN = roundTo(sdnnMs, 2),
             restingHR = restingHrBpm,
-            hrvScore = hrvScore,
+            hrvRmValue = roundTo(hrvRmValue, 1),
         )
 
         return try {
@@ -96,10 +96,9 @@ class IntervalsIcuRepository(
     /**
      * Writes a placeholder value to today's HRVRM custom field only (hrv/hrvSDNN/
      * restingHR are left unset, so today's already-uploaded real values aren't
-     * touched — PUT only sets the fields present in the body). Lets you confirm the
-     * custom field itself accepts writes without waiting for a 7-measurement baseline.
+     * touched — PUT only sets the fields present in the body).
      */
-    suspend fun sendTestHrvScore(testValue: Int): UploadResult {
+    suspend fun sendTestHrvScore(testValue: Double): UploadResult {
         val apiKey = settingsStore.apiKey.first()
         val athleteId = settingsStore.athleteId.first()
 
@@ -110,7 +109,7 @@ class IntervalsIcuRepository(
         }
 
         val today = LocalDate.now().format(dateFormatter)
-        val body = WellnessUpdate(hrvScore = testValue)
+        val body = WellnessUpdate(hrvRmValue = testValue)
 
         return try {
             val api = IntervalsIcuClientFactory.create(apiKey)

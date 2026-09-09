@@ -85,9 +85,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Writes a placeholder value (50) to today's HRVRM field only — lets you confirm
-     * the custom field itself accepts writes without waiting for a real 7-measurement
-     * baseline. Leaves hrv/hrvSDNN/restingHR alone, so today's real values are untouched.
+     * Writes a placeholder value to today's HRVRM field only — lets you confirm the
+     * custom field itself accepts writes. Leaves hrv/hrvSDNN/restingHR alone, so
+     * today's real values are untouched.
      */
     fun sendTestHrvValue() {
         viewModelScope.launch {
@@ -103,6 +103,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private companion object {
-        const val TEST_HRV_VALUE = 50
+        const val TEST_HRV_VALUE = 8.5
     }
 }

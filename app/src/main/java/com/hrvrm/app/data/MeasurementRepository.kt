@@ -62,7 +62,7 @@ class MeasurementRepository(
             measurementEpochMs = measurement.timestampEpochMs,
             rmssdMs = measurement.rmssdMs,
             sdnnMs = measurement.sdnnMs,
-            hrvScore = measurement.hrvScore,
+            hrvRmValue = measurement.altiniScaleValue,
             restingHrBpm = measurement.meanHrBpm.roundToInt(),
         )
         val updated = when (result) {

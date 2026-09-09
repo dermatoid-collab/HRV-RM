@@ -19,9 +19,14 @@ data class WellnessUpdate(
     val hrv: Double? = null,
     val hrvSDNN: Double? = null,
     val restingHR: Int? = null,
-    /** Custom wellness field on this athlete's Intervals.icu account. */
+    /**
+     * Custom wellness field on this athlete's Intervals.icu account. Holds the
+     * HRV4Training-style ln-scale reading (roughly 6-10), not the app's own 0-100
+     * baseline-comparison score — that value is always available, even on the very
+     * first measurement, whereas the 0-100 score needs history to mean anything.
+     */
     @SerialName("HRVRM")
-    val hrvScore: Int? = null,
+    val hrvRmValue: Double? = null,
 )
 
 interface IntervalsIcuApi {
