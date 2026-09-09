@@ -17,7 +17,7 @@ data class PpgProcessingResult(
 )
 
 /**
- * Turns a raw camera-luma trace into clean RR-like inter-beat intervals.
+ * Turns a raw camera red-channel trace into clean RR-like inter-beat intervals.
  *
  * Pipeline: detrend (remove slow drift from finger pressure / respiration) -> smooth
  * (reduce sensor/quantization noise) -> peak-pick with a refractory period -> reject
@@ -30,6 +30,15 @@ class PpgSignalProcessor(
     private val maxBpm: Double = 200.0,
     /** Reject a beat if its IBI differs from the local median by more than this fraction. */
     private val artifactTolerance: Double = 0.20,
+    /**
+     * Minimum gap enforced between accepted peaks. Deliberately larger than
+     * 60_000/maxBpm: a PPG pulse has a secondary "dicrotic notch" bump ~300-450ms after
+     * the real systolic peak, which a refractory period sized only for the max
+     * plausible heart rate doesn't exclude — it gets picked up as a second, spurious
+     * peak. 400ms (150 bpm) filters that out while still allowing genuinely fast
+     * consecutive beats.
+     */
+    private val peakRefractoryMs: Long = 400L,
 ) {
 
     fun process(samples: List<PpgSample>): PpgProcessingResult {
@@ -44,8 +53,7 @@ class PpgSignalProcessor(
         val detrended = detrend(samples, windowMs = 800.0, sampleRateHz = sampleRateHz)
         val smoothed = movingAverage(detrended, windowSamples = maxOf(1, (sampleRateHz / 10).toInt()))
 
-        val minPeakDistanceMs = (60_000.0 / maxBpm).toLong()
-        val beatTimestamps = findPeaks(samples, smoothed, minPeakDistanceMs)
+        val beatTimestamps = findPeaks(samples, smoothed, peakRefractoryMs)
 
         val rawIbis = beatTimestamps.zipWithNext { a, b -> b - a }
 
