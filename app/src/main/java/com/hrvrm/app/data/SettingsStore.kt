@@ -24,12 +24,12 @@ class SettingsStore(private val context: Context) {
     val autoUpload: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_UPLOAD] ?: true }
 
     suspend fun setCredentials(apiKey: String, athleteId: String) {
-        val trimmedId = athleteId.trim()
-        // Intervals.icu athlete IDs look like "i123456"; accept the digits alone too.
-        val normalizedId = if (trimmedId.isNotEmpty() && trimmedId[0].isDigit()) "i$trimmedId" else trimmedId
+        // Stored exactly as entered (just trimmed) — no "i" prefix guessing. ERG-RM,
+        // which authenticates against the same API successfully, does the same: it
+        // trusts the value Intervals.icu itself shows the athlete on their own profile.
         context.dataStore.edit { prefs ->
             prefs[Keys.API_KEY] = apiKey.trim()
-            prefs[Keys.ATHLETE_ID] = normalizedId
+            prefs[Keys.ATHLETE_ID] = athleteId.trim()
         }
     }
 

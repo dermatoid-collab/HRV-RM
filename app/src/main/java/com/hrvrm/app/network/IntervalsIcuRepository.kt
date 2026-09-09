@@ -2,6 +2,7 @@ package com.hrvrm.app.network
 
 import com.hrvrm.app.data.SettingsStore
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.first
@@ -76,9 +77,11 @@ class IntervalsIcuRepository(
             )
         }
 
+        val today = LocalDate.now().format(dateFormatter)
+
         return try {
             val api = IntervalsIcuClientFactory.create(apiKey)
-            val response = api.getProfile(athleteId)
+            val response = api.getEvents(athleteId, oldest = today, newest = today)
             if (response.isSuccessful) {
                 UploadResult.Success
             } else {

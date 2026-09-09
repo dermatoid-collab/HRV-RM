@@ -44,10 +44,14 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    `restingHR` e il campo custom `HRVRM` con il punteggio 0–100; quest'ultimo viene
    omesso finché la baseline personale non è pronta, cioè per le prime 7 misurazioni).
    Nella tab Settings, il pulsante **"Test connection"** fa una chiamata di sola
-   lettura (`GET /api/v1/athlete/{id}/profile`) per verificare che API key e Athlete
-   ID corrispondano *prima* di fare una misurazione intera — utile perché una API key
+   lettura (`GET /api/v1/athlete/{id}/events`, stesso endpoint collaudato usato da
+   ERG-RM per leggere il calendario) per verificare che API key e Athlete ID
+   corrispondano *prima* di fare una misurazione intera — utile perché una API key
    di intervals.icu è valida solo per l'atleta che l'ha generata: un Athlete ID
    sbagliato dà lo stesso identico `403 Access denied` di una key sbagliata.
+   L'Athlete ID viene salvato esattamente come digitato (solo trim, nessun prefisso
+   `i` aggiunto automaticamente) — vanno inseriti entrambi così come compaiono sul
+   proprio account intervals.icu.
 
 ## Interfaccia
 

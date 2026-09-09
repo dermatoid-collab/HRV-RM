@@ -7,6 +7,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /**
  * Fields understood by Intervals.icu's per-day wellness entry. Only the HRV-related ones
@@ -32,9 +33,16 @@ interface IntervalsIcuApi {
         @Body body: WellnessUpdate,
     ): Response<Unit>
 
-    /** Cheap read-only call used to validate that the API key and athlete ID actually match. */
-    @GET("api/v1/athlete/{athleteId}/profile")
-    suspend fun getProfile(
+    /**
+     * Cheap read-only call used to validate that the API key and athlete ID actually
+     * match, before attempting a write. Same endpoint shape as ERG-RM's proven-working
+     * calendar read (`GET .../events`) — a zero-day range still hits real auth/athlete
+     * checks without needing to model the full event payload.
+     */
+    @GET("api/v1/athlete/{athleteId}/events")
+    suspend fun getEvents(
         @Path("athleteId") athleteId: String,
+        @Query("oldest") oldest: String,
+        @Query("newest") newest: String,
     ): Response<Unit>
 }
