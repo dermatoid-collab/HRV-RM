@@ -32,9 +32,11 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
      un flag qualitativo `withinNormalRange` (nella norma / fuori norma) — il segnale
      che dovrebbe davvero guidare le decisioni, non il numero in sé;
    - viene mostrato anche un valore in **scala "stile HRV4Training"** (`altiniScaleValue`
-     = 2×ln(RMSSD) mediato, tipicamente 6–10 per un adulto) insieme ai confini della
-     banda nella stessa scala — utile per chi è abituato a leggere quei numeri, anche
-     se è puramente un fattore di scala cosmetico (uno z-score non cambia).
+     = 20×ln(RMSSD) mediato, tipicamente 0–100, raramente poco sopra 100 con RMSSD molto
+     alto) insieme ai confini della banda nella stessa scala — utile per chi è abituato
+     a leggere quei numeri, anche se è puramente un fattore di scala cosmetico (uno
+     z-score non cambia). Il moltiplicatore 20× è confermato da una fonte diretta del
+     forum HRV4Training, non dedotto come inizialmente.
    - servono almeno 3 misurazioni precedenti prima che score/banda siano disponibili
      (`HrvScoreCalculator.MIN_BASELINE_SAMPLES`) — soglia bassa apposta per vedere un
      valore reale presto, a costo di più rumore statistico nei primi giorni; sale in

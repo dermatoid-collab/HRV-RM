@@ -25,10 +25,11 @@ data class HrvScoreResult(
     /** 7-reading rolling average of ln(RMSSD), including today — the value actually compared to baseline. */
     val smoothedLnRmssd: Double,
     /**
-     * [smoothedLnRmssd] on an HRV4Training-like display scale (roughly 6-10 for typical
-     * adults, instead of ~3-5 for plain ln(RMSSD)). HRV4Training displays ln(RMSSD^2), i.e.
-     * 2x ln(RMSSD) — a z-score is unaffected by this constant factor, it only changes how
-     * the number reads on screen.
+     * [smoothedLnRmssd] on HRV4Training's own display scale: 20x ln(RMSSD), which lands
+     * roughly in 0-100 for realistic RMSSD (occasionally just over 100 for very high
+     * RMSSD) — the same range convention as e.g. a readiness score, rather than the raw
+     * ~3-5 of plain ln(RMSSD). A z-score is unaffected by this constant factor, it only
+     * changes how the number reads on screen.
      */
     val altiniScaleValue: Double,
     val baselineMeanLnRmssd: Double?,
@@ -60,8 +61,13 @@ object HrvScoreCalculator {
     const val SMOOTHING_WINDOW_SIZE = 7
     const val NORMAL_RANGE_SD_MULTIPLIER = 0.5
 
-    /** Display-scale factor: HRV4Training shows ln(RMSSD^2) = this many x ln(RMSSD). */
-    private const val ALTINI_SCALE_FACTOR = 2.0
+    /**
+     * Display-scale factor: HRV4Training shows 20x ln(RMSSD) — chosen so the result
+     * lands in roughly a 0-100 range (matching CV/readiness-score conventions in the
+     * literature), occasionally just over 100 for very high RMSSD. The multiplier has
+     * no effect on the underlying statistics (CV, z-scores); only the log transform does.
+     */
+    private const val ALTINI_SCALE_FACTOR = 20.0
 
     /**
      * @param todayRmssdMs RMSSD (ms) from today's measurement.
