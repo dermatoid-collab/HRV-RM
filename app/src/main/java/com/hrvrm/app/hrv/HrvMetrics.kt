@@ -12,6 +12,13 @@ data class HrvMetrics(
     val rmssdMs: Double,
     val pnn50Percent: Double,
     val beatCount: Int,
+    /**
+     * RMSSD normalized by mean RR (as a %): RMSSD/meanIbiMs x 100. A higher resting HR
+     * means shorter RR intervals, which structurally leaves less room for beat-to-beat
+     * variation — this correction is what makes RMSSD comparable across measurements
+     * (or people) taken at different heart rates.
+     */
+    val normalizedHrvPercent: Double,
 )
 
 object HrvMetricsCalculator {
@@ -31,6 +38,7 @@ object HrvMetricsCalculator {
         val pnn50 = if (diffs.isNotEmpty()) 100.0 * nn50 / diffs.size else 0.0
 
         val meanHr = 60_000.0 / mean
+        val normalizedHrv = 100.0 * rmssd / mean
 
         return HrvMetrics(
             meanHrBpm = meanHr,
@@ -39,6 +47,7 @@ object HrvMetricsCalculator {
             rmssdMs = rmssd,
             pnn50Percent = pnn50,
             beatCount = cleanIbiMs.size,
+            normalizedHrvPercent = normalizedHrv,
         )
     }
 }

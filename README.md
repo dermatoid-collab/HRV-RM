@@ -32,11 +32,16 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
      un flag qualitativo `withinNormalRange` (nella norma / fuori norma) — il segnale
      che dovrebbe davvero guidare le decisioni, non il numero in sé;
    - viene mostrato anche un valore in **scala "stile HRV4Training"** (`altiniScaleValue`
-     = 20×ln(RMSSD) mediato, tipicamente 0–100, raramente poco sopra 100 con RMSSD molto
-     alto) insieme ai confini della banda nella stessa scala — utile per chi è abituato
-     a leggere quei numeri, anche se è puramente un fattore di scala cosmetico (uno
-     z-score non cambia). Il moltiplicatore 20× è confermato da una fonte diretta del
-     forum HRV4Training, non dedotto come inizialmente.
+     = 2×ln(RMSSD) mediato, tipicamente 6–10 per un adulto) insieme ai confini della
+     banda nella stessa scala — utile per chi è abituato a leggere quei numeri, anche
+     se è puramente un fattore di scala cosmetico (uno z-score non cambia). Un post di
+     forum sosteneva un moltiplicatore 20× (range 0–100), ma i valori osservati
+     nell'app reale di HRV4Training (sempre attorno a 9) confermano 2×, non 20×.
+   - **HRV normalizzata** (`normalizedHrvPercent` = RMSSD/meanRR × 100, in `hrv/HrvMetrics`):
+     RMSSD è strutturalmente più basso a frequenze cardiache più alte (RR più corti
+     lasciano meno spazio alla variabilità), quindi normalizzare per l'intervallo medio
+     rende il dato più confrontabile tra misurazioni fatte a frequenze diverse. Mostrata
+     nella schermata risultato, non ancora caricata su Intervals.icu.
    - servono almeno 3 misurazioni precedenti prima che score/banda siano disponibili
      (`HrvScoreCalculator.MIN_BASELINE_SAMPLES`) — soglia bassa apposta per vedere un
      valore reale presto, a costo di più rumore statistico nei primi giorni; sale in

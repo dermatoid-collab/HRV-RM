@@ -220,6 +220,7 @@ private fun ResultContent(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             MetricRow("Average heart rate", "${measurement.meanHrBpm.roundToInt()} bpm")
             MetricRow("RMSSD", "${measurement.rmssdMs.roundToInt()} ms")
+            MetricRow("Normalized HRV", "%.1f %%".format(measurement.normalizedHrvPercent))
             MetricRow("SDNN", "${measurement.sdnnMs.roundToInt()} ms")
             MetricRow("pNN50", "${measurement.pnn50Percent.roundToInt()} %")
             MetricRow("Valid beats", "${measurement.beatCount} (${measurement.rejectedBeatCount} rejected)")

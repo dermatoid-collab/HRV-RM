@@ -14,6 +14,8 @@ data class MeasurementEntity(
     val sdnnMs: Double,
     val rmssdMs: Double,
     val pnn50Percent: Double,
+    /** RMSSD/meanRR x 100 — corrects for RMSSD being structurally lower at higher heart rates. */
+    val normalizedHrvPercent: Double,
     val beatCount: Int,
     val rejectedBeatCount: Int,
     /** Null while the personal baseline is still being built up (fewer than 7 prior readings). */

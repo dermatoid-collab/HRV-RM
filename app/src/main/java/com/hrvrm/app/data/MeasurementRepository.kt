@@ -38,6 +38,7 @@ class MeasurementRepository(
             sdnnMs = metrics.sdnnMs,
             rmssdMs = metrics.rmssdMs,
             pnn50Percent = metrics.pnn50Percent,
+            normalizedHrvPercent = metrics.normalizedHrvPercent,
             beatCount = metrics.beatCount,
             rejectedBeatCount = rejectedBeatCount,
             hrvScore = scoreResult.score,
