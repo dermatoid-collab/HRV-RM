@@ -90,6 +90,14 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                     val windowed = snapshot.filter { it.timestampMs >= cutoff }
                     val result = if (windowed.size >= 8) processor.process(windowed) else null
 
+                    // The detrend filter is recomputed from scratch each tick on a fresh
+                    // window, so its trailing edge (the freshest samples) is its least
+                    // stable part — a centered moving average has nothing to average
+                    // against yet right at the edge. Dropping a small tail before taking
+                    // the display slice trades a few hundred ms of latency for a trace
+                    // that doesn't visibly wobble.
+                    val waveformSource = result?.filteredSignal?.dropLast(EDGE_TRIM_SAMPLES)
+
                     _uiState.value = MeasureUiState.Measuring(
                         remainingSec = remainingSec.toInt(),
                         totalSec = MEASURE_SEC,
@@ -97,7 +105,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                         // Show the detrended/smoothed trace, not the raw camera signal: the raw
                         // red-channel value has enough baseline drift and quantization noise to
                         // look "unstable" even when the underlying pulse is clean.
-                        waveform = result?.filteredSignal?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
+                        waveform = waveformSource?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
                     )
 
                     if (elapsedMs >= totalMs) break
@@ -179,7 +187,9 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         const val MEASURE_SEC = 60
         /** Waveform/BPM refresh cadence — fast enough to read as a continuously scrolling trace. */
         const val TICK_INTERVAL_MS = 100L
-        const val WAVEFORM_WINDOW_MS = 8000L
+        const val WAVEFORM_WINDOW_MS = 9000L
         const val WAVEFORM_POINTS = 220
+        /** ~10 samples at 30fps ≈ 330ms trimmed off the unstable trailing edge before display. */
+        const val EDGE_TRIM_SAMPLES = 10
     }
 }
