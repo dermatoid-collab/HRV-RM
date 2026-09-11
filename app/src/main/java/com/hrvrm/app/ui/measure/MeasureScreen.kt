@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,6 +34,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
@@ -164,34 +170,75 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
             .aspectRatio(2f),
     )
 
-    Spacer(Modifier.height(24.dp))
-    Text(
-        "${state.remainingSec}s",
-        style = MaterialTheme.typography.displayMedium,
-        fontWeight = FontWeight.Bold,
-    )
-    Spacer(Modifier.height(8.dp))
-    Text(
-        state.liveBpm?.let { "${it.roundToInt()} bpm" } ?: "Detecting pulse…",
-        style = MaterialTheme.typography.bodyLarge,
-    )
-    Spacer(Modifier.height(8.dp))
-    LinearProgress(state.remainingSec, state.totalSec)
+    Spacer(Modifier.height(32.dp))
+    MeasuringRing(state.remainingSec, state.totalSec, state.liveBpm)
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(32.dp))
     OutlinedButton(onClick = onCancel) {
         Text("Cancel")
     }
 }
 
+/**
+ * A single progress ring replaces the old countdown text + linear bar: the BPM reading
+ * (the number people keep glancing at) gets a much bigger font, and the remaining time
+ * lives right below it instead of competing for its own line.
+ */
 @Composable
-private fun LinearProgress(remainingSec: Int, totalSec: Int) {
-    androidx.compose.material3.LinearProgressIndicator(
-        progress = { 1f - remainingSec / totalSec.toFloat() },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(6.dp),
-    )
+private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
+    val progress = 1f - remainingSec / totalSec.toFloat()
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val progressColor = MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = Modifier.size(220.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidthPx = 14.dp.toPx()
+            val diameter = size.minDimension - strokeWidthPx
+            val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+            val arcSize = Size(diameter, diameter)
+
+            drawArc(
+                color = trackColor,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+            )
+            drawArc(
+                color = progressColor,
+                startAngle = -90f,
+                sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                liveBpm?.let { "${it.roundToInt()}" } ?: "--",
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                if (liveBpm != null) "bpm" else "detecting pulse…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "${remainingSec}s left",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
 }
 
 @Composable
