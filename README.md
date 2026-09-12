@@ -48,7 +48,15 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
      affidabilità man mano che si arriva verso le 60 misurazioni della finestra mobile.
    Non è una riproduzione dell'algoritmo proprietario di HRV4Training (chiuso), ma la
    stessa logica metodologica, implementata da zero.
-4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali.
+4. **Storico locale (`data/`)** — Room + DataStore per misurazioni e credenziali. La tab
+   **History** mostra, fissato sopra la lista delle misurazioni, un grafico
+   dell'andamento giornaliero (`ui/history/HrvTrendChart.kt`) con la fascia della
+   "normal range" personale e un marker colorato per stato (nella norma / fuori norma
+   / baseline in costruzione) — stessa semantica di colore di `ScoreBadge`. Un giorno
+   con più misurazioni conta solo l'ultima. Zoom e navigazione sono a gesti (pinch/
+   trascinamento, doppio tap per resettare) più scorciatoie rapide 7/30/90 giorni/Tutto;
+   il toggle fra scala ln (default, coerente con `HRVRM`) e score 0–100 compare solo
+   quando lo score è già disponibile.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`, campi `hrv`/`hrvSDNN`/
    `restingHR` e il campo custom `HRVRM` con il valore in **scala ln stile

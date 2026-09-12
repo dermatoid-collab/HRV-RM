@@ -3,6 +3,7 @@ package com.hrvrm.app.ui.history
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +35,7 @@ import kotlin.math.roundToInt
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
+    val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
 
     if (measurements.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -42,13 +44,21 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
         return
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(measurements, key = { it.id }) { measurement ->
-            HistoryRow(measurement)
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (dailyTrend.size >= 2) {
+            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp)) {
+                HrvTrendChart(dailyTrend, modifier = Modifier.padding(12.dp))
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(measurements, key = { it.id }) { measurement ->
+                HistoryRow(measurement)
+            }
         }
     }
 }

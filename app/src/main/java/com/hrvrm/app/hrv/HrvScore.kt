@@ -61,6 +61,10 @@ object HrvScoreCalculator {
     const val SMOOTHING_WINDOW_SIZE = 7
     const val NORMAL_RANGE_SD_MULTIPLIER = 0.5
 
+    /** score = SCORE_CENTER + z * SCORE_Z_SCALE — shared with callers that need the score-scale normal band. */
+    const val SCORE_CENTER = 50
+    const val SCORE_Z_SCALE = 20.0
+
     /**
      * Display-scale factor: HRV4Training shows ln(RMSSD^2) = this many x ln(RMSSD).
      * A forum post claimed 20x (landing in ~0-100), but that contradicts the real app's
@@ -100,7 +104,7 @@ object HrvScoreCalculator {
         val sd = sqrt(variance).coerceAtLeast(1e-6)
 
         val z = (smoothedToday - mean) / sd
-        val score = (50 + z * 20).roundToInt().coerceIn(0, 100)
+        val score = (SCORE_CENTER + z * SCORE_Z_SCALE).roundToInt().coerceIn(0, 100)
         val halfBand = NORMAL_RANGE_SD_MULTIPLIER * sd
 
         return HrvScoreResult(
