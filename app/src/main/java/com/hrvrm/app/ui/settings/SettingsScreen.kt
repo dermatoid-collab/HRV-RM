@@ -10,13 +10,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.sp
@@ -119,6 +122,57 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 result,
                 fontSize = 13.sp,
                 color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+            )
+        }
+
+        Text("Testing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Sample history is written only to this device's local database, never to " +
+                "Intervals.icu — but it does feed your real rolling baseline until cleared.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = viewModel::seedSampleHistory, enabled = !state.seedInProgress) {
+                if (state.seedInProgress) {
+                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp)
+                }
+                Text("Seed sample history")
+            }
+            OutlinedButton(
+                onClick = viewModel::requestClearHistory,
+                enabled = !state.clearInProgress,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("Clear all history")
+            }
+        }
+
+        state.seedResult?.let {
+            Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
+        }
+        state.clearResult?.let {
+            Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
+        }
+
+        if (state.showClearConfirm) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissClearHistory,
+                title = { Text("Clear all history?") },
+                text = {
+                    Text(
+                        "This permanently deletes every measurement on this device — " +
+                            "sample data and real readings alike.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = viewModel::confirmClearHistory) {
+                        Text("Delete everything", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissClearHistory) { Text("Cancel") }
+                },
             )
         }
     }

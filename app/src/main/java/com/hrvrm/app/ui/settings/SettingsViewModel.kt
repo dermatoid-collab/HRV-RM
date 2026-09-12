@@ -22,11 +22,17 @@ data class SettingsUiState(
     val testResult: String? = null,
     val testHrvInProgress: Boolean = false,
     val testHrvResult: String? = null,
+    val seedInProgress: Boolean = false,
+    val seedResult: String? = null,
+    val clearInProgress: Boolean = false,
+    val clearResult: String? = null,
+    val showClearConfirm: Boolean = false,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsStore = (getApplication<Application>() as HrvRmApp).container.settingsStore
+    private val measurementRepository = (getApplication<Application>() as HrvRmApp).container.measurementRepository
     private val intervalsRepository = IntervalsIcuRepository(settingsStore)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -102,7 +108,36 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** Local-only test data for trying out the trend chart — never uploaded to Intervals.icu. */
+    fun seedSampleHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(seedInProgress = true, seedResult = null) }
+            val count = measurementRepository.seedSampleHistory(SEED_DAYS)
+            _uiState.update {
+                it.copy(seedInProgress = false, seedResult = "Added $count sample days — check History.")
+            }
+        }
+    }
+
+    fun requestClearHistory() {
+        _uiState.update { it.copy(showClearConfirm = true) }
+    }
+
+    fun dismissClearHistory() {
+        _uiState.update { it.copy(showClearConfirm = false) }
+    }
+
+    /** Deletes every measurement on this device — sample data and real readings alike. */
+    fun confirmClearHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(showClearConfirm = false, clearInProgress = true, clearResult = null) }
+            measurementRepository.clearAllHistory()
+            _uiState.update { it.copy(clearInProgress = false, clearResult = "History cleared.") }
+        }
+    }
+
     private companion object {
         const val TEST_HRV_VALUE = 8.5
+        const val SEED_DAYS = 45
     }
 }
