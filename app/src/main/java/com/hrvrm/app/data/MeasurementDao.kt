@@ -27,7 +27,4 @@ interface MeasurementDao {
             "ORDER BY timestampEpochMs DESC LIMIT :limit",
     )
     suspend fun getPriorMeasurements(beforeEpochMs: Long, limit: Int): List<MeasurementEntity>
-
-    @Query("DELETE FROM measurements")
-    suspend fun deleteAll()
 }

@@ -32,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -51,6 +54,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import kotlin.math.roundToInt
+
+/** How much of the gap to a new BPM reading to close per recomposition tick — see [MeasuringRing]. */
+private const val BPM_SMOOTHING = 0.35
 
 @Composable
 fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
@@ -190,6 +196,15 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
     val progressColor = MaterialTheme.colorScheme.primary
 
+    // The raw estimate only moves once per detected beat, and real beats don't land on a
+    // regular clock — so snapping straight to it makes the number hop unevenly. Easing
+    // toward each new reading instead (same idea as the waveform's smoothed scale) turns
+    // those hops into a steady glide, settling on the new value within half a second or so.
+    var displayBpm by remember { mutableStateOf<Double?>(null) }
+    if (liveBpm != null) {
+        displayBpm = displayBpm?.let { it + (liveBpm - it) * BPM_SMOOTHING } ?: liveBpm
+    }
+
     Box(
         modifier = Modifier.size(220.dp),
         contentAlignment = Alignment.Center,
@@ -222,12 +237,12 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                liveBpm?.let { "${it.roundToInt()}" } ?: "--",
+                displayBpm?.let { "${it.roundToInt()}" } ?: "--",
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                if (liveBpm != null) "bpm" else "detecting pulse…",
+                if (displayBpm != null) "bpm" else "detecting pulse…",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
