@@ -16,9 +16,17 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    — l'auto-esposizione altrimenti "combatte" attivamente il segnale, rinormalizzando
    di continuo la luminosità e sopprimendo l'ampiezza che si sta cercando di misurare.
 2. **Elaborazione (`ppg/PpgSignalProcessor`)** — detrend, smoothing, rilevazione dei
-   picchi con periodo refrattario e scarto degli artefatti (battiti fisiologicamente
-   implausibili o troppo distanti dal ritmo locale) producono una serie di intervalli
-   RR "puliti".
+   picchi col metodo di Elgendi et al. 2013 ("Systolic Peak Detection in Acceleration
+   Photoplethysmograms...", PLoS ONE), il rilevatore più citato in letteratura per PPG:
+   segnale elevato al quadrato (solo parte positiva) per amplificare il picco sistolico
+   molto più della piccola tacca dicrota, poi due medie mobili (~111ms e ~667ms) per
+   isolare solo i blocchi abbastanza larghi da essere un vero battito. La tacca dicrota
+   viene così esclusa dalla **forma/larghezza** del blocco, non dal solo timing (un
+   periodo refrattario fisso non basta: la tacca cade prima o dopo la soglia a seconda
+   della frequenza cardiaca — causa concreta di un alto tasso di battiti scartati anche
+   con segnale visivamente pulito). Segue lo scarto degli artefatti (battiti
+   fisiologicamente implausibili o troppo distanti dal ritmo locale), producendo una
+   serie di intervalli RR "puliti".
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
    standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
    "Daily score, baseline and normal range: an overview") invece di uno z-score

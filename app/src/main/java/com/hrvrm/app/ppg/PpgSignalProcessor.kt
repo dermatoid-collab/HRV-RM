@@ -1,7 +1,7 @@
 package com.hrvrm.app.ppg
 
 import kotlin.math.abs
-import kotlin.math.sqrt
+import kotlin.math.roundToInt
 
 /**
  * One inter-beat interval as it was decided, for a live/diagnostic log: when the beat that
@@ -28,10 +28,11 @@ data class PpgProcessingResult(
  * Turns a raw camera red-channel trace into clean RR-like inter-beat intervals.
  *
  * Pipeline: detrend (remove slow drift from finger pressure / respiration) -> smooth
- * (reduce sensor/quantization noise) -> peak-pick with a refractory period -> reject
- * beats outside a plausible heart-rate range or that jump too far from the local
- * running rhythm. This is the same family of technique commercial camera-PPG apps use;
- * it is not a reproduction of any proprietary vendor algorithm.
+ * (reduce sensor/quantization noise) -> Elgendi-method peak-pick (see [findPeaks], excludes
+ * the dicrotic notch by shape/width rather than timing alone) -> reject beats outside a
+ * plausible heart-rate range or that jump too far from the local running rhythm. This is
+ * the same family of technique commercial camera-PPG apps use; it is not a reproduction of
+ * any proprietary vendor algorithm.
  */
 class PpgSignalProcessor(
     private val minBpm: Double = 35.0,
@@ -39,15 +40,24 @@ class PpgSignalProcessor(
     /** Reject a beat if its IBI differs from the local median by more than this fraction. */
     private val artifactTolerance: Double = 0.20,
     /**
-     * Minimum gap enforced between accepted peaks. Deliberately larger than
-     * 60_000/maxBpm: a PPG pulse has a secondary "dicrotic notch" bump ~300-450ms after
-     * the real systolic peak, which a refractory period sized only for the max
-     * plausible heart rate doesn't exclude — it gets picked up as a second, spurious
-     * peak. 400ms (150 bpm) filters that out while still allowing genuinely fast
-     * consecutive beats.
+     * Backup safety net, not the primary notch defense (that's the width check in
+     * [findPeaks]): guards against two adjacent above-threshold blocks from a single true
+     * beat. 400ms (150 bpm) is comfortably below the plausible max heart rate.
      */
     private val peakRefractoryMs: Long = 400L,
 ) {
+    private companion object {
+        /** Elgendi's W1: moving-average window sized to a systolic peak's own width. */
+        const val ELGENDI_PEAK_WINDOW_MS = 111.0
+        /** Elgendi's W2: moving-average window sized to a whole beat, tracking the envelope. */
+        const val ELGENDI_BEAT_WINDOW_MS = 667.0
+        /**
+         * Elgendi's beta, scaling the statistical-mean offset added to the beat-envelope
+         * threshold. The published value is a starting point, not independently re-derived
+         * here — worth tuning against real recordings if beat detection still misbehaves.
+         */
+        const val ELGENDI_THRESHOLD_BETA = 0.02
+    }
 
     fun process(samples: List<PpgSample>): PpgProcessingResult {
         if (samples.size < 8) {
@@ -61,7 +71,7 @@ class PpgSignalProcessor(
         val detrended = detrend(samples, windowMs = 800.0, sampleRateHz = sampleRateHz)
         val smoothed = movingAverage(detrended, windowSamples = maxOf(1, (sampleRateHz / 10).toInt()))
 
-        val beatTimestamps = findPeaks(samples, smoothed, peakRefractoryMs)
+        val beatTimestamps = findPeaks(samples, smoothed, sampleRateHz)
 
         val rawIbis = beatTimestamps.zipWithNext { a, b -> b - a }
 
@@ -130,28 +140,59 @@ class PpgSignalProcessor(
     }
 
     /**
-     * Local-maxima peak picker with a refractory period so a single beat can't be
-     * counted twice, plus an adaptive amplitude threshold based on the recent signal's RMS
-     * so it self-calibrates to whatever contact quality the finger placement gives.
+     * Elgendi et al. (2013), "Systolic Peak Detection in Acceleration Photoplethysmograms
+     * Measured from Emergency Responders in Tropical Conditions" (PLoS ONE 8(10): e76585)
+     * — the most-cited PPG peak detector, ~99.8% sensitivity/positive-predictivity on its
+     * validation set. Clipping the signal to its positive part and squaring it amplifies
+     * the (larger) systolic peak far more than the (smaller) dicrotic notch bump, since
+     * squaring grows superlinearly with amplitude. Two moving averages — a short one
+     * (~111ms) tracking individual peaks, a long one (~667ms) tracking the overall beat
+     * envelope — define "blocks of interest" wherever the short one rises above the long
+     * one; a block only counts as a beat if it's at least as wide as a real systolic peak.
+     * That width check is what actually excludes the notch: a fixed refractory period
+     * alone can't, since notch timing (~300-450ms after the true peak) falls on either
+     * side of a 400ms cutoff depending on heart rate — which is exactly the failure mode
+     * that was driving the high "discarded" rate despite a clean-looking waveform.
      */
-    private fun findPeaks(samples: List<PpgSample>, signal: List<Double>, minDistanceMs: Long): List<Long> {
+    private fun findPeaks(samples: List<PpgSample>, signal: List<Double>, sampleRateHz: Double): List<Long> {
         if (signal.size < 3) return emptyList()
 
-        val rms = sqrt(signal.sumOf { it * it } / signal.size)
-        val threshold = rms * 0.35
+        val squaredPositive = signal.map { v -> if (v > 0) v * v else 0.0 }
+        val peakWindowSamples = maxOf(1, (ELGENDI_PEAK_WINDOW_MS / 1000.0 * sampleRateHz).roundToInt())
+        val beatWindowSamples = maxOf(peakWindowSamples + 1, (ELGENDI_BEAT_WINDOW_MS / 1000.0 * sampleRateHz).roundToInt())
+
+        val maPeak = movingAverage(squaredPositive, peakWindowSamples)
+        val maBeat = movingAverage(squaredPositive, beatWindowSamples)
+        // Statistical-mean offset (Elgendi's alpha): keeps flat/silent stretches (no finger
+        // contact, signal dropout) from tripping the threshold on noise alone.
+        val alpha = ELGENDI_THRESHOLD_BETA * squaredPositive.average()
 
         val peaks = mutableListOf<Long>()
         var lastPeakMs = Long.MIN_VALUE / 2
 
-        for (i in 1 until signal.size - 1) {
-            val v = signal[i]
-            val ts = samples[i].timestampMs
-            val isLocalMax = v > signal[i - 1] && v >= signal[i + 1]
-            if (isLocalMax && v > threshold && ts - lastPeakMs >= minDistanceMs) {
+        fun closeBlock(start: Int, endInclusive: Int) {
+            if (endInclusive - start + 1 < peakWindowSamples) return // narrower than a real systolic peak
+            var maxIdx = start
+            for (j in start..endInclusive) if (signal[j] > signal[maxIdx]) maxIdx = j
+            val ts = samples[maxIdx].timestampMs
+            if (ts - lastPeakMs >= peakRefractoryMs) {
                 peaks.add(ts)
                 lastPeakMs = ts
             }
         }
+
+        var blockStart = -1
+        for (i in signal.indices) {
+            val aboveThreshold = maPeak[i] > maBeat[i] + alpha
+            if (aboveThreshold) {
+                if (blockStart == -1) blockStart = i
+            } else if (blockStart != -1) {
+                closeBlock(blockStart, i - 1)
+                blockStart = -1
+            }
+        }
+        if (blockStart != -1) closeBlock(blockStart, signal.lastIndex)
+
         return peaks
     }
 
