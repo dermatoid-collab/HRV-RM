@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -85,11 +87,18 @@ private fun HistoryRow(measurement: MeasurementEntity) {
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val scoreColor = when (measurement.withinNormalRange) {
+                    true -> MaterialTheme.colorScheme.secondary
+                    false -> MaterialTheme.colorScheme.error
+                    null -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
                 Text(
-                    measurement.hrvScore?.toString() ?: "–",
+                    "%.1f".format(measurement.altiniScaleValue),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
+                    color = scoreColor,
                 )
+                Spacer(Modifier.width(8.dp))
                 Icon(
                     if (measurement.uploadedToIntervals) Icons.Filled.CloudDone else Icons.Filled.CloudOff,
                     contentDescription = null,
