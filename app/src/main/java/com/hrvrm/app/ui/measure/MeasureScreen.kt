@@ -4,7 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +24,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
@@ -25,22 +37,26 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,6 +67,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import kotlin.math.roundToInt
+
+private val BEAT_LOG_ROW_HEIGHT = 24.dp
+private const val BEAT_LOG_VISIBLE_ROWS = 3
 
 @Composable
 fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
@@ -86,6 +105,7 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(PaddingValues(24.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -177,6 +197,120 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
     OutlinedButton(onClick = onCancel) {
         Text("Cancel")
     }
+
+    Spacer(Modifier.height(20.dp))
+    LiveBeatLog(state.beatLog, modifier = Modifier.fillMaxWidth())
+}
+
+/**
+ * A terminal-style log of detected beats: always 3 rows tall, auto-scrolling as new beats
+ * come in. Shows the same clean/rejected intervals the score is built from, exposed
+ * instead of staying only inside the final calculation — useful to see signal quality
+ * live rather than just the beat-count summary after the fact.
+ */
+@Composable
+private fun LiveBeatLog(entries: List<BeatLogEntry>, modifier: Modifier = Modifier) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(entries.size) {
+        if (entries.isNotEmpty()) listState.animateScrollToItem(entries.lastIndex)
+    }
+
+    Card(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "LIVE BEATS",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            LiveIndicatorDot(MaterialTheme.colorScheme.secondary)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+
+        if (entries.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().height(BEAT_LOG_ROW_HEIGHT * BEAT_LOG_VISIBLE_ROWS)) {
+                Text(
+                    "Waiting for the first beat…",
+                    modifier = Modifier.padding(horizontal = 12.dp).align(Alignment.CenterStart),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                userScrollEnabled = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(BEAT_LOG_ROW_HEIGHT * BEAT_LOG_VISIBLE_ROWS),
+            ) {
+                items(entries) { entry -> BeatLogRow(entry) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveIndicatorDot(color: Color) {
+    val transition = rememberInfiniteTransition(label = "liveDot")
+    val alpha by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+        label = "liveDotAlpha",
+    )
+    Box(
+        modifier = Modifier
+            .size(6.dp)
+            .background(color.copy(alpha = alpha), CircleShape),
+    )
+}
+
+@Composable
+private fun BeatLogRow(entry: BeatLogEntry) {
+    val statusColor = if (entry.accepted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(BEAT_LOG_ROW_HEIGHT)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            formatBeatLogElapsed(entry.elapsedMs),
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(36.dp),
+        )
+        Text(
+            "RR ${entry.ibiMs} ms",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = if (entry.accepted) MaterialTheme.colorScheme.onSurface else statusColor,
+            modifier = Modifier.width(76.dp),
+        )
+        Text(
+            if (entry.accepted) "${(60_000L / entry.ibiMs.coerceAtLeast(1))} bpm" else "discarded",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = statusColor,
+        )
+    }
+}
+
+private fun formatBeatLogElapsed(ms: Long): String {
+    val totalTenths = ms / 100
+    val minutes = totalTenths / 600
+    val seconds = (totalTenths / 10) % 60
+    val tenth = totalTenths % 10
+    return "$minutes:${seconds.toString().padStart(2, '0')}.$tenth"
 }
 
 /**

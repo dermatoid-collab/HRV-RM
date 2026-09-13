@@ -29,6 +29,13 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
     private var collecting = false
     private var measureJob: Job? = null
 
+    // Live beat log for the Measuring screen: the processor reprocesses a sliding window
+    // from scratch every tick, so the same beat would otherwise get re-emitted on every
+    // tick it's still inside that window — track the newest beat already logged and only
+    // append ones past it.
+    private val beatLog = mutableListOf<BeatLogEntry>()
+    private var loggedUpToMs = Long.MIN_VALUE
+
     private val _uiState = MutableStateFlow<MeasureUiState>(MeasureUiState.Idle)
     val uiState: StateFlow<MeasureUiState> = _uiState.asStateFlow()
 
@@ -61,6 +68,8 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
 
         samples.clear()
         collecting = false
+        beatLog.clear()
+        loggedUpToMs = Long.MIN_VALUE
         cameraSource.start(lifecycleOwner)
 
         measureJob?.cancel()
@@ -72,6 +81,8 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                 }
 
                 samples.clear()
+                beatLog.clear()
+                loggedUpToMs = Long.MIN_VALUE
                 collecting = true
                 // Exposure has had the whole stabilization countdown to converge on the
                 // lit fingertip; lock it now so auto-exposure doesn't fight the reading.
@@ -98,6 +109,24 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                     // that doesn't visibly wobble.
                     val waveformSource = result?.filteredSignal?.dropLast(EDGE_TRIM_SAMPLES)
 
+                    if (result != null) {
+                        val measurementOriginMs = snapshot.first().timestampMs
+                        val newEvents = result.ibiEvents.filter { it.atMs > loggedUpToMs }
+                        if (newEvents.isNotEmpty()) {
+                            loggedUpToMs = newEvents.last().atMs
+                            newEvents.forEach { event ->
+                                beatLog.add(
+                                    BeatLogEntry(
+                                        elapsedMs = event.atMs - measurementOriginMs,
+                                        ibiMs = event.ibiMs,
+                                        accepted = event.accepted,
+                                    ),
+                                )
+                            }
+                            while (beatLog.size > MAX_BEAT_LOG_ENTRIES) beatLog.removeAt(0)
+                        }
+                    }
+
                     _uiState.value = MeasureUiState.Measuring(
                         remainingSec = remainingSec.toInt(),
                         totalSec = MEASURE_SEC,
@@ -106,6 +135,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                         // red-channel value has enough baseline drift and quantization noise to
                         // look "unstable" even when the underlying pulse is clean.
                         waveform = waveformSource?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
+                        beatLog = beatLog.toList(),
                     )
 
                     if (elapsedMs >= totalMs) break
@@ -191,5 +221,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         const val WAVEFORM_POINTS = 220
         /** ~10 samples at 30fps ≈ 330ms trimmed off the unstable trailing edge before display. */
         const val EDGE_TRIM_SAMPLES = 10
+        /** Generous cap for a ~65s measurement (~1 beat/sec) — bounds memory, not visible cadence. */
+        const val MAX_BEAT_LOG_ENTRIES = 200
     }
 }

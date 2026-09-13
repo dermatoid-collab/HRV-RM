@@ -3,6 +3,12 @@ package com.hrvrm.app.ppg
 import kotlin.math.abs
 import kotlin.math.sqrt
 
+/**
+ * One inter-beat interval as it was decided, for a live/diagnostic log: when the beat that
+ * closes it landed, how long the interval was, and whether it survived artifact rejection.
+ */
+data class IbiEvent(val atMs: Long, val ibiMs: Long, val accepted: Boolean)
+
 /** Result of turning a raw intensity trace into a set of beat-to-beat intervals. */
 data class PpgProcessingResult(
     /** Detrended, smoothed signal — only used to draw the live waveform. */
@@ -14,6 +20,8 @@ data class PpgProcessingResult(
     /** Inter-beat intervals in ms with physiologically implausible / noisy beats removed. */
     val cleanIbiMs: List<Long>,
     val rejectedBeatCount: Int,
+    /** Every raw interval with its accept/reject outcome, in detection order. */
+    val ibiEvents: List<IbiEvent>,
 )
 
 /**
@@ -43,7 +51,7 @@ class PpgSignalProcessor(
 
     fun process(samples: List<PpgSample>): PpgProcessingResult {
         if (samples.size < 8) {
-            return PpgProcessingResult(emptyList(), emptyList(), emptyList(), emptyList(), 0)
+            return PpgProcessingResult(emptyList(), emptyList(), emptyList(), emptyList(), 0, emptyList())
         }
 
         val durationMs = (samples.last().timestampMs - samples.first().timestampMs).toDouble()
@@ -57,7 +65,12 @@ class PpgSignalProcessor(
 
         val rawIbis = beatTimestamps.zipWithNext { a, b -> b - a }
 
-        val (cleanIbis, rejected) = rejectArtifacts(rawIbis)
+        val acceptedFlags = rejectArtifacts(rawIbis)
+        val cleanIbis = rawIbis.filterIndexed { i, _ -> acceptedFlags[i] }
+        val rejected = acceptedFlags.count { !it }
+        val ibiEvents = rawIbis.indices.map { i ->
+            IbiEvent(atMs = beatTimestamps[i + 1], ibiMs = rawIbis[i], accepted = acceptedFlags[i])
+        }
 
         return PpgProcessingResult(
             filteredSignal = smoothed,
@@ -65,6 +78,7 @@ class PpgSignalProcessor(
             rawIbiMs = rawIbis,
             cleanIbiMs = cleanIbis,
             rejectedBeatCount = rejected,
+            ibiEvents = ibiEvents,
         )
     }
 
@@ -143,22 +157,24 @@ class PpgSignalProcessor(
 
     /**
      * Drops beats outside the plausible heart-rate range and beats whose interval jumps
-     * too far from the local rhythm (motion artifact / missed or doubled beat).
+     * too far from the local rhythm (motion artifact / missed or doubled beat). Returns
+     * one accept/reject flag per entry in [rawIbis], same order — a rejected interval
+     * doesn't join the running "recent" window used to judge the ones after it.
      */
-    private fun rejectArtifacts(rawIbis: List<Long>): Pair<List<Long>, Int> {
+    private fun rejectArtifacts(rawIbis: List<Long>): List<Boolean> {
         val minIbiMs = (60_000.0 / maxBpm).toLong()
         val maxIbiMs = (60_000.0 / minBpm).toLong()
 
         val accepted = mutableListOf<Long>()
-        var rejected = 0
+        val flags = MutableList(rawIbis.size) { false }
 
-        for (ibi in rawIbis) {
+        for ((i, ibi) in rawIbis.withIndex()) {
             if (ibi < minIbiMs || ibi > maxIbiMs) {
-                rejected++
                 continue
             }
             if (accepted.size < 3) {
                 accepted.add(ibi)
+                flags[i] = true
                 continue
             }
             val recent = accepted.takeLast(5).sorted()
@@ -166,10 +182,9 @@ class PpgSignalProcessor(
             val deviation = abs(ibi - median).toDouble() / median
             if (deviation <= artifactTolerance) {
                 accepted.add(ibi)
-            } else {
-                rejected++
+                flags[i] = true
             }
         }
-        return accepted to rejected
+        return flags
     }
 }

@@ -79,6 +79,10 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
 - **Solo in inglese** — nessuna stringa localizzata in italiano nell'app.
 - Grafico PPG live con **scroll continuo** (refresh ogni 100ms, non 1s) e linea spessa,
   disegnato sul segnale già filtrato (detrend + smoothing), non sul dato grezzo.
+- Sotto l'anello di misurazione, un **log live dei battiti** (3 righe, scorrevole) mostra
+  in tempo reale gli stessi intervalli RR usati per calcolare RMSSD/score — tempo
+  trascorso, RR in ms, bpm istantaneo — con i battiti scartati come artefatto evidenziati
+  in rosso invece che nascosti nel solo conteggio finale.
 - Lo schermo resta acceso per tutta la misurazione (`View.keepScreenOn`): altrimenti,
   andando in timeout, l'activity va in pausa e CameraX chiude la sessione — spegnendo
   il flash a metà lettura.

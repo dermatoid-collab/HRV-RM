@@ -2,6 +2,9 @@ package com.hrvrm.app.ui.measure
 
 import com.hrvrm.app.data.MeasurementEntity
 
+/** One row in the Measuring screen's live beat log — see [MeasureUiState.Measuring.beatLog]. */
+data class BeatLogEntry(val elapsedMs: Long, val ibiMs: Long, val accepted: Boolean)
+
 sealed interface MeasureUiState {
     data object Idle : MeasureUiState
     data object NeedsPermission : MeasureUiState
@@ -12,6 +15,7 @@ sealed interface MeasureUiState {
         val totalSec: Int,
         val liveBpm: Double?,
         val waveform: List<Double>,
+        val beatLog: List<BeatLogEntry> = emptyList(),
     ) : MeasureUiState
     data object Processing : MeasureUiState
     data class Result(val measurement: MeasurementEntity, val uploadInProgress: Boolean) : MeasureUiState
