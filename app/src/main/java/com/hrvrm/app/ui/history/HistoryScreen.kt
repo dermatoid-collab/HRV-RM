@@ -71,7 +71,7 @@ private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Lo
 private fun HistoryRow(measurement: MeasurementEntity) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
