@@ -27,27 +27,51 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    con segnale visivamente pulito; corretto escludendo dalla scansione dei picchi la
    metà finale, meno affidabile, della finestra lunga — non le medie mobili stesse, che
    restano corrette per i punti precedenti — così un battito reale lì viene semplicemente
-   rilevato un tick o due più tardi invece di generarne uno falso). Segue lo scarto degli
-   artefatti (battiti fisiologicamente implausibili o il cui intervallo si scosta troppo
-   dal **ritmo recente smorzato in modo esponenziale** di questa persona, non da una
-   percentuale fissa uguale per tutti). Il riferimento è passato per due forme sbagliate
-   in direzioni opposte prima di arrivare a questa: una mediana su finestra di 5 battiti
-   resta indietro durante un trend reale e sostenuto (es. l'aritmia respiratoria sinusale,
-   il battito che rallenta gradualmente durante l'espirazione), scartando battiti che
-   proseguivano benissimo il trend; confrontare col solo battito precedente (senza alcuno
-   smorzamento) lasciava che un singolo battito rumoroso diventasse l'unico riferimento
-   per il confronto successivo, innescando una cascata di scarti — peggio, non meglio, in
-   pratica. Una media esponenziale smorzata (stessa tecnica già usata per la scala del
-   grafico d'onda) insegue un trend reale in un paio di battiti pur restando una media
-   della storia recente, non un singolo campione grezzo — un battito rumoroso la sposta
-   solo in parte. La soglia resta comunque proporzionata alla variabilità recente
-   battito-battito di questa persona (deviazione assoluta mediana dei passi recenti), non
-   una percentuale fissa: la letteratura sull'artifact correction in HRV (Lipponen &
-   Tarvainen 2019; gli scritti dello stesso Altini su PPG) segnala che soglie fisse al
-   20-30% scartano troppo per chi ha HRV genuinamente alta — tipicamente atleti — dove
-   ampie oscillazioni battito-battito sono normale fisiologia, non rumore: scartarle
-   abbassa artificialmente l'RMSSD calcolato, che è per definizione una misura di quelle
-   stesse oscillazioni.
+   rilevato un tick o due più tardi invece di generarne uno falso). Un secondo problema
+   della stessa media mobile, individuato analizzando una registrazione reale esportata
+   con **"Export raw data"** (vedi sotto) che scartava circa il 70% dei battiti: subito
+   dopo un vero picco sistolico il segnale scende ben sotto zero per un tratto lungo
+   quasi quanto la finestra di 667ms, quindi mentre la finestra *centrata* scorre oltre
+   il picco la sua media può crollare verso zero proprio nella valle fra un battito e il
+   successivo — a quel punto anche la piccola tacca dicrota supera la soglia (ormai
+   quasi nulla anch'essa) e genera un secondo "battito" per ogni ciclo cardiaco, con
+   larghezza del blocco indistinguibile da un picco vero (quindi non escluso dal solo
+   controllo di larghezza). Corretto aggiungendo un **filtro di ampiezza**: un blocco
+   conta come battito solo se il suo picco è almeno il 35% di una media esponenziale dei
+   picchi accettati di recente — la tacca dicrota, per costruzione, è sempre molto più
+   piccola di un vero picco sistolico, verificato sia sulla registrazione reale (tutti i
+   blocchi "tacca" esclusi, tutti i battiti veri mantenuti) sia su un segnale sintetico
+   pulito (nessun cambiamento). Segue lo scarto degli artefatti (battiti fisiologicamente
+   implausibili o il cui intervallo si scosta troppo dal **ritmo recente smorzato in modo
+   esponenziale** di questa persona, non da una percentuale fissa uguale per tutti). Il
+   riferimento è passato per due forme sbagliate in direzioni opposte prima di arrivare a
+   questa: una mediana su finestra di 5 battiti resta indietro durante un trend reale e
+   sostenuto (es. l'aritmia respiratoria sinusale, il battito che rallenta gradualmente
+   durante l'espirazione), scartando battiti che proseguivano benissimo il trend;
+   confrontare col solo battito precedente (senza alcuno smorzamento) lasciava che un
+   singolo battito rumoroso diventasse l'unico riferimento per il confronto successivo,
+   innescando una cascata di scarti — peggio, non meglio, in pratica. Una media
+   esponenziale smorzata (stessa tecnica già usata per la scala del grafico d'onda)
+   insegue un trend reale in un paio di battiti pur restando una media della storia
+   recente, non un singolo campione grezzo — un battito rumoroso la sposta solo in
+   parte. La soglia resta comunque proporzionata alla variabilità recente battito-battito
+   di questa persona (deviazione assoluta mediana dei passi recenti), non una percentuale
+   fissa: la letteratura sull'artifact correction in HRV (Lipponen & Tarvainen 2019; gli
+   scritti dello stesso Altini su PPG) segnala che soglie fisse al 20-30% scartano troppo
+   per chi ha HRV genuinamente alta — tipicamente atleti — dove ampie oscillazioni
+   battito-battito sono normale fisiologia, non rumore: scartarle abbassa artificialmente
+   l'RMSSD calcolato, che è per definizione una misura di quelle stesse oscillazioni. Il
+   **pavimento** sotto quella soglia (sotto il quale non si scende mai, anche quando la
+   variabilità recente è quasi nulla) era inizialmente un valore fisso in ms — sbagliato
+   per lo stesso motivo delle soglie fisse: lo stesso scarto in ms pesa molto di più, in
+   percentuale, a frequenza cardiaca bassa (intervalli lunghi) che alta. Corretto in una
+   **frazione del ritmo corrente** (25%), calibrata sulla stessa registrazione reale una
+   volta tolti i falsi battiti della tacca dicrota: gli scarti battito-battito genuini
+   risultavano ~4% del ritmo alla mediana, ~12% al 90° percentile — con la doppia
+   correzione, quella registrazione (70% scartati in origine) scende all'11%, dentro il
+   range considerato accettabile in letteratura (5-14%), con una frequenza cardiaca
+   finale coerente e un andamento fluido, compatibile con una normale aritmia
+   respiratoria sinusale.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
    standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
    "Daily score, baseline and normal range: an overview") invece di uno z-score
@@ -118,7 +142,11 @@ ai due — non c'è un compilatore Kotlin in questo ambiente di sviluppo) dello 
 algoritmo, con ogni costante tarabile da riga di comando e una modalità `--sweep` che
 prova una griglia di combinazioni sulla stessa registrazione reale in pochi secondi. Un
 cambiamento si porta in `PpgSignalProcessor.kt` solo dopo essere stato verificato così,
-non più per tentativi sul dispositivo.
+non più per tentativi sul dispositivo. Prima verifica reale del metodo: una registrazione
+che scartava il 70% dei battiti ha mostrato, ispezionando il segnale filtrato campione
+per campione, che non era affatto rumore — era la tacca dicrota rilevata come battito a
+sé stante circa una volta su due (vedi punto 2 sopra); la stessa registrazione, con la
+causa vera corretta, scarta l'11%.
 
 ## Interfaccia
 

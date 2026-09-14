@@ -76,11 +76,30 @@ class Params:
     elgendi_peak_window_ms: float = 111.0
     elgendi_beat_window_ms: float = 667.0
     elgendi_threshold_beta: float = 0.02
+    # A block's peak must be at least this fraction of the EWMA of recent accepted peak
+    # amplitudes to count as a beat. Root cause this targets (found by diagnosing a real
+    # recording where ~70% of beats were rejected): maBeat is a moving average over one
+    # beat-length window, so right after a strong systolic peak it can decay toward zero
+    # during the quiet trough before the next beat -- and once it does, even the tiny
+    # dicrotic notch bump clears `maPeak > maBeat + alpha`, producing a spurious *second*
+    # detected "beat" per real cardiac cycle. Width alone (Elgendi's own discriminator)
+    # doesn't catch this: the notch block can be just as wide as a real peak's block, only
+    # much shorter. Gating on amplitude relative to recent real peaks does.
+    peak_min_relative_amplitude: float = 0.35
+    peak_amplitude_smoothing: float = 0.3
 
     artifact_baseline_beats: int = 3
-    artifact_level_smoothing: float = 0.4
+    artifact_level_smoothing: float = 0.6
     artifact_recent_window: int = 5
-    artifact_tolerance_floor_ms: float = 80.0
+    # Fraction of the current rhythm level, not a fixed ms value: an absolute floor tuned
+    # against ~600-700ms IBIs (high HR) is far too tight at ~1000-1300ms IBIs (low HR) --
+    # the same natural swing in ms is a much bigger deal, in ms, at a slower heart rate.
+    # 0.25 was checked against a real recording's actual smooth, gradual (respiratory
+    # sinus arrhythmia-like) beat-to-beat drift once the spurious notch-beats above were
+    # removed: adjacent accepted steps were ~4% of level at the median, ~12% at the 90th
+    # percentile, so 25% leaves real headroom without reopening the door to genuine
+    # artifacts (a missed/doubled beat still jumps by roughly +-100%).
+    artifact_tolerance_floor_fraction: float = 0.25
     artifact_mad_multiplier: float = 4.5
 
 
@@ -114,7 +133,8 @@ def detrend(samples: list[Sample], window_ms: float, sample_rate_hz: float) -> l
 
 
 def find_peaks(samples: list[Sample], signal: list[float], sample_rate_hz: float, p: Params) -> list[int]:
-    """Kotlin: PpgSignalProcessor.findPeaks -- Elgendi et al. 2013 peak detection."""
+    """Kotlin: PpgSignalProcessor.findPeaks -- Elgendi et al. 2013 peak detection, plus an
+    amplitude gate against recent real peaks (see Params.peak_min_relative_amplitude)."""
     if len(signal) < 3:
         return []
 
@@ -131,19 +151,28 @@ def find_peaks(samples: list[Sample], signal: list[float], sample_rate_hz: float
 
     peaks: list[int] = []
     last_peak_ms = -(10 ** 15)
+    recent_peak_level: float | None = None
 
     def close_block(start: int, end_inclusive: int) -> None:
-        nonlocal last_peak_ms
+        nonlocal last_peak_ms, recent_peak_level
         if end_inclusive - start + 1 < peak_window_samples:
             return
         max_idx = start
         for j in range(start, end_inclusive + 1):
             if signal[j] > signal[max_idx]:
                 max_idx = j
+        amplitude = signal[max_idx]
         ts = samples[max_idx].timestamp_ms
-        if ts - last_peak_ms >= p.peak_refractory_ms:
-            peaks.append(ts)
-            last_peak_ms = ts
+        if ts - last_peak_ms < p.peak_refractory_ms:
+            return
+        if recent_peak_level is not None and amplitude < p.peak_min_relative_amplitude * recent_peak_level:
+            return  # too small next to recent real beats -- a dicrotic notch, not a beat
+        peaks.append(ts)
+        last_peak_ms = ts
+        recent_peak_level = (
+            amplitude if recent_peak_level is None
+            else recent_peak_level + (amplitude - recent_peak_level) * p.peak_amplitude_smoothing
+        )
 
     trailing_edge_guard = beat_window_samples // 2
     scan_limit = len(signal) - 1 - trailing_edge_guard
@@ -189,7 +218,8 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
         recent = sorted(recent_steps[-p.artifact_recent_window:])
         typical_step = recent[len(recent) // 2] if recent else 0.0
         step_mad = sorted(abs(x - typical_step) for x in recent)[len(recent) // 2] if recent else 0.0
-        tolerance = max(p.artifact_tolerance_floor_ms, typical_step + step_mad * p.artifact_mad_multiplier)
+        floor = current_level * p.artifact_tolerance_floor_fraction
+        tolerance = max(floor, typical_step + step_mad * p.artifact_mad_multiplier)
 
         if step <= tolerance:
             recent_steps.append(step)
@@ -255,9 +285,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("samples_json", help="Path to an exported raw-sample JSON file")
     ap.add_argument("--beta", type=float, help="Elgendi threshold beta (default 0.02)")
+    ap.add_argument("--min-rel-amplitude", type=float, help="Peak amplitude gate vs recent peaks (default 0.35)")
     ap.add_argument("--mad-multiplier", type=float, help="Artifact MAD multiplier (default 4.5)")
-    ap.add_argument("--level-smoothing", type=float, help="Artifact EWMA smoothing factor (default 0.4)")
-    ap.add_argument("--tolerance-floor", type=float, help="Artifact tolerance floor ms (default 80)")
+    ap.add_argument("--level-smoothing", type=float, help="Artifact EWMA smoothing factor (default 0.6)")
+    ap.add_argument("--tolerance-floor-fraction", type=float, help="Artifact tolerance floor, x current level (default 0.25)")
     ap.add_argument("--recent-window", type=int, help="Artifact recent-step window (default 5)")
     ap.add_argument("--dump-events", action="store_true", help="Print every beat with its accept/reject outcome")
     ap.add_argument("--sweep", action="store_true", help="Grid-search common knobs and rank by rejection rate")
@@ -268,31 +299,33 @@ def main() -> None:
           f"{(samples[-1].timestamp_ms - samples[0].timestamp_ms) / 1000.0:.1f}s")
 
     if args.sweep:
-        betas = [0.01, 0.02, 0.03, 0.05]
-        mads = [2.5, 3.5, 4.5, 6.0, 8.0]
-        smooths = [0.25, 0.4, 0.6]
+        amps = [0.2, 0.3, 0.35, 0.45]
+        mads = [3.0, 4.5, 6.0, 8.0]
+        fracs = [0.15, 0.20, 0.25, 0.30]
         rows = []
-        for beta, mad, smooth in itertools.product(betas, mads, smooths):
-            p = Params(elgendi_threshold_beta=beta, artifact_mad_multiplier=mad, artifact_level_smoothing=smooth)
+        for amp, mad, frac in itertools.product(amps, mads, fracs):
+            p = Params(peak_min_relative_amplitude=amp, artifact_mad_multiplier=mad, artifact_tolerance_floor_fraction=frac)
             r = process(samples, p)
             total = len(r.clean_ibi_ms) + r.rejected_beat_count
             pct = (100.0 * r.rejected_beat_count / total) if total else 100.0
-            rows.append((pct, beta, mad, smooth, len(r.clean_ibi_ms), r.rejected_beat_count))
+            rows.append((pct, amp, mad, frac, len(r.clean_ibi_ms), r.rejected_beat_count))
         rows.sort(key=lambda r: r[0])
-        print(f"\n{'reject%':>8} {'beta':>6} {'mad':>5} {'smooth':>7} {'ok':>4} {'rej':>4}")
-        for pct, beta, mad, smooth, ok, rej in rows[:20]:
-            print(f"{pct:7.1f}% {beta:6.3f} {mad:5.1f} {smooth:7.2f} {ok:4d} {rej:4d}")
+        print(f"\n{'reject%':>8} {'minAmp':>7} {'mad':>5} {'floorFrac':>9} {'ok':>4} {'rej':>4}")
+        for pct, amp, mad, frac, ok, rej in rows[:20]:
+            print(f"{pct:7.1f}% {amp:7.2f} {mad:5.1f} {frac:9.2f} {ok:4d} {rej:4d}")
         return
 
     p = Params()
     if args.beta is not None:
         p.elgendi_threshold_beta = args.beta
+    if args.min_rel_amplitude is not None:
+        p.peak_min_relative_amplitude = args.min_rel_amplitude
     if args.mad_multiplier is not None:
         p.artifact_mad_multiplier = args.mad_multiplier
     if args.level_smoothing is not None:
         p.artifact_level_smoothing = args.level_smoothing
-    if args.tolerance_floor is not None:
-        p.artifact_tolerance_floor_ms = args.tolerance_floor
+    if args.tolerance_floor_fraction is not None:
+        p.artifact_tolerance_floor_fraction = args.tolerance_floor_fraction
     if args.recent_window is not None:
         p.artifact_recent_window = args.recent_window
 

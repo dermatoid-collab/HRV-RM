@@ -66,6 +66,19 @@ class PpgSignalProcessor(
          * here — worth tuning against real recordings if beat detection still misbehaves.
          */
         const val ELGENDI_THRESHOLD_BETA = 0.02
+        /**
+         * A detected block only counts as a beat if its peak is at least this fraction of
+         * the EWMA of recent *accepted* peak amplitudes — see the root-cause note on
+         * [findPeaks]. Found by exporting a real recording (dev-tools/ppg_processor.py) that
+         * was rejecting ~70% of beats: nearly every "beat" alternated between a genuine
+         * systolic peak and a much smaller block a few hundred ms later that turned out to
+         * be the dicrotic notch, not a second heartbeat. 0.35 rejected every notch-sized
+         * block in that recording while keeping every genuine one (checked against a clean
+         * synthetic signal too, where it changes nothing).
+         */
+        const val PEAK_MIN_RELATIVE_AMPLITUDE = 0.35
+        /** How fast the recent-peak-amplitude reference (for the check above) adapts. */
+        const val PEAK_AMPLITUDE_SMOOTHING = 0.3
 
         const val ARTIFACT_BASELINE_BEATS = 3
         /**
@@ -74,15 +87,22 @@ class PpgSignalProcessor(
          * arrhythmia) within a couple of beats; well short of 1.0 so one noisy beat can't
          * become the entire reference the way an unsmoothed previous-beat compare did.
          */
-        const val ARTIFACT_LEVEL_SMOOTHING = 0.4
+        const val ARTIFACT_LEVEL_SMOOTHING = 0.6
         /** How many recent accepted step sizes (not raw IBIs) set the current tolerance. */
         const val ARTIFACT_RECENT_WINDOW = 5
         /**
-         * Floor on the accept/reject band regardless of how small recent beat-to-beat steps
-         * have been, so a short unusually-steady stretch (step MAD momentarily ~0) doesn't
-         * make the filter reject on essentially no tolerance at all.
+         * Floor on the accept/reject band, as a fraction of the *current rhythm level*
+         * rather than a fixed ms value: the same ms swing is a much bigger deal, in percent,
+         * at a slow heart rate (long IBIs) than a fast one — a flat floor tuned for one
+         * regime over- or under-rejects in the other. 0.25 was checked (same real recording
+         * as above, after the notch fix): once the spurious notch-beats were gone, the
+         * remaining genuine beat-to-beat steps were ~4% of the rhythm level at the median
+         * and ~12% at the 90th percentile — 25% leaves headroom for real physiological
+         * variability (this app's target users include endurance athletes, who can have
+         * pronounced respiratory sinus arrhythmia) while a true missed/doubled beat still
+         * jumps by roughly +-100% and gets caught.
          */
-        const val ARTIFACT_TOLERANCE_FLOOR_MS = 80.0
+        const val ARTIFACT_TOLERANCE_FLOOR_FRACTION = 0.25
         /**
          * Scales the median absolute deviation of recent successive-differences into an
          * accept/reject band, added on top of the typical (median) step itself. A fixed
@@ -210,6 +230,19 @@ class PpgSignalProcessor(
      * rate. Excluding the unstable trailing half of the *long* window from the scan (not
      * from the moving averages themselves, which still need full context for earlier
      * points) is the fix — a beat there is simply picked up a tick or two later instead.
+     *
+     * A second, separate failure mode of the same moving-average mechanism: right after a
+     * real systolic peak, the signal plunges well below zero (the trough between beats) and
+     * stays there for a good fraction of [ELGENDI_BEAT_WINDOW_MS] — so as the *centered*
+     * window slides forward past the peak, maBeat (built from the squared, positive-clipped
+     * signal) can collapse toward zero *during that trough*, well before the next real beat.
+     * With maBeat and the alpha offset both tiny at that moment, even the dicrotic notch's
+     * small bump clears `maPeak > maBeat + alpha` and opens its own "block of interest" —
+     * a second detected beat per cardiac cycle, exactly at the point in the cycle where the
+     * notch sits. This showed up as a real recording alternating between plausible IBIs and
+     * a much shorter one, block width included: the notch's block can be just as wide as a
+     * real peak's, so Elgendi's own width check doesn't exclude it here, only *how tall* the
+     * block is does — see the amplitude gate in [closeBlock] below.
      */
     private fun findPeaks(samples: List<PpgSample>, signal: List<Double>, sampleRateHz: Double): List<Long> {
         if (signal.size < 3) return emptyList()
@@ -226,16 +259,25 @@ class PpgSignalProcessor(
 
         val peaks = mutableListOf<Long>()
         var lastPeakMs = Long.MIN_VALUE / 2
+        // EWMA of recent *accepted* peak amplitudes — the reference a candidate block's own
+        // peak must clear a fraction of (see PEAK_MIN_RELATIVE_AMPLITUDE) to count as a beat
+        // rather than a dicrotic notch.
+        var recentPeakLevel: Double? = null
 
         fun closeBlock(start: Int, endInclusive: Int) {
             if (endInclusive - start + 1 < peakWindowSamples) return // narrower than a real systolic peak
             var maxIdx = start
             for (j in start..endInclusive) if (signal[j] > signal[maxIdx]) maxIdx = j
+            val amplitude = signal[maxIdx]
             val ts = samples[maxIdx].timestampMs
-            if (ts - lastPeakMs >= peakRefractoryMs) {
-                peaks.add(ts)
-                lastPeakMs = ts
+            if (ts - lastPeakMs < peakRefractoryMs) return
+            val currentPeakLevel = recentPeakLevel
+            if (currentPeakLevel != null && amplitude < PEAK_MIN_RELATIVE_AMPLITUDE * currentPeakLevel) {
+                return // too small next to recent real beats -- a dicrotic notch, not a beat
             }
+            peaks.add(ts)
+            lastPeakMs = ts
+            recentPeakLevel = currentPeakLevel?.let { it + (amplitude - it) * PEAK_AMPLITUDE_SMOOTHING } ?: amplitude
         }
 
         val trailingEdgeGuard = beatWindowSamples / 2
@@ -276,8 +318,8 @@ class PpgSignalProcessor(
      * noisy point only nudges it partway. Same idea already used for the waveform's
      * display scale (see PpgWaveform.kt's SCALE_SMOOTHING). "Too far" is still sized by
      * this person's own recent step-to-step variability, not a fixed percentage — see
-     * [ARTIFACT_MAD_MULTIPLIER]. Returns one outcome per entry in [rawIbis] (null =
-     * accepted), same order.
+     * [ARTIFACT_MAD_MULTIPLIER] and, for the floor under it, [ARTIFACT_TOLERANCE_FLOOR_FRACTION].
+     * Returns one outcome per entry in [rawIbis] (null = accepted), same order.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
         val minIbiMs = (60_000.0 / maxBpm).toLong()
@@ -305,7 +347,8 @@ class PpgSignalProcessor(
             val recent = recentSteps.takeLast(ARTIFACT_RECENT_WINDOW).sorted()
             val typicalStep = if (recent.isEmpty()) 0.0 else recent[recent.size / 2]
             val stepMad = if (recent.isEmpty()) 0.0 else recent.map { abs(it - typicalStep) }.sorted()[recent.size / 2]
-            val tolerance = maxOf(ARTIFACT_TOLERANCE_FLOOR_MS, typicalStep + stepMad * ARTIFACT_MAD_MULTIPLIER)
+            val floor = currentLevel * ARTIFACT_TOLERANCE_FLOOR_FRACTION
+            val tolerance = maxOf(floor, typicalStep + stepMad * ARTIFACT_MAD_MULTIPLIER)
             if (step <= tolerance) {
                 recentSteps.add(step)
                 level = currentLevel + (ibi - currentLevel) * ARTIFACT_LEVEL_SMOOTHING
