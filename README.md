@@ -25,8 +25,15 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    periodo refrattario fisso non basta: la tacca cade prima o dopo la soglia a seconda
    della frequenza cardiaca — causa concreta di un alto tasso di battiti scartati anche
    con segnale visivamente pulito). Segue lo scarto degli artefatti (battiti
-   fisiologicamente implausibili o troppo distanti dal ritmo locale), producendo una
-   serie di intervalli RR "puliti".
+   fisiologicamente implausibili o troppo distanti dal **ritmo locale della persona**,
+   non da una percentuale fissa uguale per tutti: la soglia si adatta alla deviazione
+   assoluta mediana — MAD — degli ultimi battiti accettati. La letteratura sull'artifact
+   correction in HRV (Lipponen & Tarvainen 2019; gli scritti dello stesso Altini su PPG)
+   segnala che soglie fisse al 20-30% scartano troppo per chi ha HRV genuinamente alta —
+   tipicamente atleti — dove ampie oscillazioni battito-battito sono normali fisiologia,
+   non rumore: scartare proprio quelle oscillazioni abbassa artificialmente l'RMSSD
+   calcolato, visto che l'RMSSD è per definizione una misura di quelle stesse oscillazioni.
+   Producendo così una serie di intervalli RR "puliti" senza penalizzare chi ha HRV alta.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
    standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
    "Daily score, baseline and normal range: an overview") invece di uno z-score

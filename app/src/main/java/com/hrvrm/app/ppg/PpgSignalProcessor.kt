@@ -37,8 +37,6 @@ data class PpgProcessingResult(
 class PpgSignalProcessor(
     private val minBpm: Double = 35.0,
     private val maxBpm: Double = 200.0,
-    /** Reject a beat if its IBI differs from the local median by more than this fraction. */
-    private val artifactTolerance: Double = 0.20,
     /**
      * Backup safety net, not the primary notch defense (that's the width check in
      * [findPeaks]): guards against two adjacent above-threshold blocks from a single true
@@ -57,6 +55,32 @@ class PpgSignalProcessor(
          * here — worth tuning against real recordings if beat detection still misbehaves.
          */
         const val ELGENDI_THRESHOLD_BETA = 0.02
+
+        const val ARTIFACT_BASELINE_BEATS = 3
+        const val ARTIFACT_RECENT_WINDOW = 5
+        /**
+         * Floor on the accept/reject band regardless of how uniform the recent beats look,
+         * so a short uniform stretch (MAD momentarily ~0) doesn't make the filter reject
+         * on essentially no tolerance at all.
+         */
+        const val ARTIFACT_TOLERANCE_FLOOR_MS = 80.0
+        /**
+         * Scales the local median absolute deviation into an accept/reject band. A fixed
+         * percentage-of-median tolerance (this app's original approach, and still common
+         * in HRV tooling) assumes everyone has similar beat-to-beat variability — but the
+         * HRV artifact-correction literature (e.g. Lipponen & Tarvainen 2019's
+         * distribution-based thresholds; Altini's own writing on PPG artifact removal)
+         * flags that as too strict for genuinely high-HRV people, where large swings
+         * between beats are normal rather than noise: fixed 20-30% bands routinely
+         * over-reject for athletes, and over-rejection biases RMSSD down, since RMSSD is
+         * itself a measure of the very swings being discarded. Scaling the band by this
+         * person's own recent MAD instead lets someone with high genuine variability keep
+         * a wider band automatically, without hand-tuning a per-person percentage. 1.4826
+         * converts MAD to an SD-equivalent for normally-distributed data; ~3 SD is a
+         * standard outlier cutoff — this constant is an approximation of that combination,
+         * not an independently re-derived constant from a specific paper.
+         */
+        const val ARTIFACT_MAD_MULTIPLIER = 4.5
     }
 
     fun process(samples: List<PpgSample>): PpgProcessingResult {
@@ -198,9 +222,11 @@ class PpgSignalProcessor(
 
     /**
      * Drops beats outside the plausible heart-rate range and beats whose interval jumps
-     * too far from the local rhythm (motion artifact / missed or doubled beat). Returns
-     * one accept/reject flag per entry in [rawIbis], same order — a rejected interval
-     * doesn't join the running "recent" window used to judge the ones after it.
+     * too far from the local rhythm (motion artifact / missed or doubled beat). "Too far"
+     * is judged against this person's own recent beat-to-beat variability (median absolute
+     * deviation), not a fixed percentage — see [ARTIFACT_MAD_MULTIPLIER]. Returns one
+     * accept/reject flag per entry in [rawIbis], same order — a rejected interval doesn't
+     * join the running "recent" window used to judge the ones after it.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<Boolean> {
         val minIbiMs = (60_000.0 / maxBpm).toLong()
@@ -213,15 +239,16 @@ class PpgSignalProcessor(
             if (ibi < minIbiMs || ibi > maxIbiMs) {
                 continue
             }
-            if (accepted.size < 3) {
+            if (accepted.size < ARTIFACT_BASELINE_BEATS) {
                 accepted.add(ibi)
                 flags[i] = true
                 continue
             }
-            val recent = accepted.takeLast(5).sorted()
+            val recent = accepted.takeLast(ARTIFACT_RECENT_WINDOW).sorted()
             val median = recent[recent.size / 2]
-            val deviation = abs(ibi - median).toDouble() / median
-            if (deviation <= artifactTolerance) {
+            val mad = recent.map { abs(it - median) }.sorted()[recent.size / 2]
+            val tolerance = maxOf(ARTIFACT_TOLERANCE_FLOOR_MS, mad * ARTIFACT_MAD_MULTIPLIER)
+            if (abs(ibi - median) <= tolerance) {
                 accepted.add(ibi)
                 flags[i] = true
             }
