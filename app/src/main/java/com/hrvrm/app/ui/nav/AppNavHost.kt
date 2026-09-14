@@ -19,6 +19,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.composable
 import com.hrvrm.app.ui.history.HistoryScreen
+import com.hrvrm.app.ui.history.MeasurementDetailScreen
 import com.hrvrm.app.ui.measure.MeasureScreen
 import com.hrvrm.app.ui.settings.SettingsScreen
 
@@ -71,8 +72,18 @@ fun AppNavHost() {
             modifier = androidx.compose.ui.Modifier.padding(innerPadding),
         ) {
             composable(Destination.Measure.route) { MeasureScreen() }
-            composable(Destination.History.route) { HistoryScreen() }
+            composable(Destination.History.route) {
+                HistoryScreen(
+                    onMeasurementClick = { id -> navController.navigate("measurementDetail/$id") },
+                )
+            }
             composable(Destination.Settings.route) { SettingsScreen() }
+            composable("measurementDetail/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id")?.toLongOrNull()
+                if (id != null) {
+                    MeasurementDetailScreen(measurementId = id, onBack = { navController.popBackStack() })
+                }
+            }
         }
     }
 }

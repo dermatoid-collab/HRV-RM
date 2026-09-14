@@ -119,7 +119,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                                     BeatLogEntry(
                                         elapsedMs = event.atMs - measurementOriginMs,
                                         ibiMs = event.ibiMs,
-                                        accepted = event.accepted,
+                                        rejectionReason = event.rejectionReason,
                                     ),
                                 )
                             }

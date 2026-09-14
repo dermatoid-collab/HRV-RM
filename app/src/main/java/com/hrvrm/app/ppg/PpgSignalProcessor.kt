@@ -3,11 +3,22 @@ package com.hrvrm.app.ppg
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/** Why a beat was dropped — surfaced in the live log so a rejection spike is diagnosable. */
+enum class BeatRejectionReason {
+    /** Faster or slower than the plausible [PpgSignalProcessor] heart-rate range. */
+    OUT_OF_RANGE,
+
+    /** Within the plausible range, but too far from this person's own recent rhythm. */
+    IRREGULAR,
+}
+
 /**
  * One inter-beat interval as it was decided, for a live/diagnostic log: when the beat that
- * closes it landed, how long the interval was, and whether it survived artifact rejection.
+ * closes it landed, how long the interval was, and whether/why it survived artifact rejection.
  */
-data class IbiEvent(val atMs: Long, val ibiMs: Long, val accepted: Boolean)
+data class IbiEvent(val atMs: Long, val ibiMs: Long, val rejectionReason: BeatRejectionReason?) {
+    val accepted: Boolean get() = rejectionReason == null
+}
 
 /** Result of turning a raw intensity trace into a set of beat-to-beat intervals. */
 data class PpgProcessingResult(
@@ -99,11 +110,11 @@ class PpgSignalProcessor(
 
         val rawIbis = beatTimestamps.zipWithNext { a, b -> b - a }
 
-        val acceptedFlags = rejectArtifacts(rawIbis)
-        val cleanIbis = rawIbis.filterIndexed { i, _ -> acceptedFlags[i] }
-        val rejected = acceptedFlags.count { !it }
+        val rejectionReasons = rejectArtifacts(rawIbis)
+        val cleanIbis = rawIbis.filterIndexed { i, _ -> rejectionReasons[i] == null }
+        val rejected = rejectionReasons.count { it != null }
         val ibiEvents = rawIbis.indices.map { i ->
-            IbiEvent(atMs = beatTimestamps[i + 1], ibiMs = rawIbis[i], accepted = acceptedFlags[i])
+            IbiEvent(atMs = beatTimestamps[i + 1], ibiMs = rawIbis[i], rejectionReason = rejectionReasons[i])
         }
 
         return PpgProcessingResult(
@@ -225,23 +236,25 @@ class PpgSignalProcessor(
      * too far from the local rhythm (motion artifact / missed or doubled beat). "Too far"
      * is judged against this person's own recent beat-to-beat variability (median absolute
      * deviation), not a fixed percentage — see [ARTIFACT_MAD_MULTIPLIER]. Returns one
-     * accept/reject flag per entry in [rawIbis], same order — a rejected interval doesn't
-     * join the running "recent" window used to judge the ones after it.
+     * outcome per entry in [rawIbis] (null = accepted), same order — a rejected interval
+     * doesn't join the running "recent" window used to judge the ones after it. Splitting
+     * out *why* each beat was dropped (range vs. locally irregular) is what makes a
+     * persistently high rejection rate diagnosable instead of a single opaque count.
      */
-    private fun rejectArtifacts(rawIbis: List<Long>): List<Boolean> {
+    private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
         val minIbiMs = (60_000.0 / maxBpm).toLong()
         val maxIbiMs = (60_000.0 / minBpm).toLong()
 
         val accepted = mutableListOf<Long>()
-        val flags = MutableList(rawIbis.size) { false }
+        val reasons = MutableList<BeatRejectionReason?>(rawIbis.size) { null }
 
         for ((i, ibi) in rawIbis.withIndex()) {
             if (ibi < minIbiMs || ibi > maxIbiMs) {
+                reasons[i] = BeatRejectionReason.OUT_OF_RANGE
                 continue
             }
             if (accepted.size < ARTIFACT_BASELINE_BEATS) {
                 accepted.add(ibi)
-                flags[i] = true
                 continue
             }
             val recent = accepted.takeLast(ARTIFACT_RECENT_WINDOW).sorted()
@@ -250,9 +263,10 @@ class PpgSignalProcessor(
             val tolerance = maxOf(ARTIFACT_TOLERANCE_FLOOR_MS, mad * ARTIFACT_MAD_MULTIPLIER)
             if (abs(ibi - median) <= tolerance) {
                 accepted.add(ibi)
-                flags[i] = true
+            } else {
+                reasons[i] = BeatRejectionReason.IRREGULAR
             }
         }
-        return flags
+        return reasons
     }
 }

@@ -35,7 +35,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
+fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick: (Long) -> Unit) {
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
     val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
 
@@ -59,7 +59,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(measurements, key = { it.id }) { measurement ->
-                HistoryRow(measurement)
+                HistoryRow(measurement, onClick = { onMeasurementClick(measurement.id) })
             }
         }
     }
@@ -68,8 +68,8 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
 private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH)
 
 @Composable
-private fun HistoryRow(measurement: MeasurementEntity) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun HistoryRow(measurement: MeasurementEntity, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

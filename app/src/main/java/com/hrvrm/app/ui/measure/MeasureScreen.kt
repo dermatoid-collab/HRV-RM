@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
+import com.hrvrm.app.ppg.BeatRejectionReason
 import kotlin.math.roundToInt
 
 private val BEAT_LOG_ROW_HEIGHT = 24.dp
@@ -297,7 +298,11 @@ private fun BeatLogRow(entry: BeatLogEntry) {
             modifier = Modifier.width(76.dp),
         )
         Text(
-            if (entry.accepted) "${(60_000L / entry.ibiMs.coerceAtLeast(1))} bpm" else "discarded",
+            when (entry.rejectionReason) {
+                null -> "${(60_000L / entry.ibiMs.coerceAtLeast(1))} bpm"
+                BeatRejectionReason.OUT_OF_RANGE -> "out of range"
+                BeatRejectionReason.IRREGULAR -> "irregular"
+            },
             fontFamily = FontFamily.Monospace,
             fontSize = 11.sp,
             color = statusColor,
@@ -418,7 +423,7 @@ private fun ResultContent(
 }
 
 @Composable
-private fun ScoreBadge(measurement: MeasurementEntity) {
+fun ScoreBadge(measurement: MeasurementEntity) {
     val altiniValueText = "%.1f".format(measurement.altiniScaleValue)
     val score = measurement.hrvScore
 
@@ -479,7 +484,7 @@ private fun ScoreBadge(measurement: MeasurementEntity) {
 }
 
 @Composable
-private fun MetricRow(label: String, value: String) {
+fun MetricRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -490,7 +495,7 @@ private fun MetricRow(label: String, value: String) {
 }
 
 @Composable
-private fun UploadStatus(measurement: MeasurementEntity, uploadInProgress: Boolean, onRetry: () -> Unit) {
+fun UploadStatus(measurement: MeasurementEntity, uploadInProgress: Boolean, onRetry: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         when {
             uploadInProgress -> {

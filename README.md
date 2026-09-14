@@ -97,7 +97,13 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
 - Sotto l'anello di misurazione, un **log live dei battiti** (3 righe, scorrevole) mostra
   in tempo reale gli stessi intervalli RR usati per calcolare RMSSD/score — tempo
   trascorso, RR in ms, bpm istantaneo — con i battiti scartati come artefatto evidenziati
-  in rosso invece che nascosti nel solo conteggio finale.
+  in rosso invece che nascosti nel solo conteggio finale, ed etichettati con il motivo
+  esatto dello scarto (`out of range` = fuori dal range di frequenza cardiaca plausibile,
+  `irregular` = troppo distante dal ritmo recente) invece di un generico "discarded" —
+  utile per capire da dove viene un tasso di scarto anomalo invece di doverlo indovinare.
+- Toccando una misurazione in **History** si apre il dettaglio completo
+  (`ui/history/MeasurementDetailScreen.kt`) con lo stesso riepilogo della schermata
+  risultato (score, metriche, stato upload con retry) per quella misurazione specifica.
 - Lo schermo resta acceso per tutta la misurazione (`View.keepScreenOn`): altrimenti,
   andando in timeout, l'activity va in pausa e CameraX chiude la sessione — spegnendo
   il flash a metà lettura.

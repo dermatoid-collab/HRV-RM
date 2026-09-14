@@ -1,9 +1,12 @@
 package com.hrvrm.app.ui.measure
 
 import com.hrvrm.app.data.MeasurementEntity
+import com.hrvrm.app.ppg.BeatRejectionReason
 
 /** One row in the Measuring screen's live beat log — see [MeasureUiState.Measuring.beatLog]. */
-data class BeatLogEntry(val elapsedMs: Long, val ibiMs: Long, val accepted: Boolean)
+data class BeatLogEntry(val elapsedMs: Long, val ibiMs: Long, val rejectionReason: BeatRejectionReason?) {
+    val accepted: Boolean get() = rejectionReason == null
+}
 
 sealed interface MeasureUiState {
     data object Idle : MeasureUiState

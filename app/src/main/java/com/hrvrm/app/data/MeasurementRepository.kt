@@ -20,6 +20,8 @@ class MeasurementRepository(
 
     fun observeAll(): Flow<List<MeasurementEntity>> = dao.observeAll()
 
+    suspend fun getById(id: Long): MeasurementEntity? = dao.getById(id)
+
     suspend fun saveMeasurement(
         timestampEpochMs: Long,
         durationSec: Int,
