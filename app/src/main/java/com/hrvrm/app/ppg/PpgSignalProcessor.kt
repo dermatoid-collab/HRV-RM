@@ -186,8 +186,20 @@ class PpgSignalProcessor(
      * one; a block only counts as a beat if it's at least as wide as a real systolic peak.
      * That width check is what actually excludes the notch: a fixed refractory period
      * alone can't, since notch timing (~300-450ms after the true peak) falls on either
-     * side of a 400ms cutoff depending on heart rate — which is exactly the failure mode
-     * that was driving the high "discarded" rate despite a clean-looking waveform.
+     * side of a 400ms cutoff depending on heart rate.
+     *
+     * [movingAverage] is a *centered* average: right at the trailing edge of whatever
+     * window this tick was given, it has no "future" samples to average against, so its
+     * value there is computed from fewer, asymmetric samples — biased, exactly like the
+     * displayed waveform's trailing edge (see [EDGE_TRIM_SAMPLES] in MeasurementViewModel).
+     * For maBeat specifically, that bias pulls the long-window threshold down right where
+     * it matters least (data that hasn't settled yet), which was spuriously opening
+     * "blocks of interest" every tick near the freshest samples — a real device recording
+     * showed this exactly: a plausible accepted beat followed by a burst of "irregular"
+     * phantom beats spaced ~100ms apart, matching the reprocessing tick rate, not a heart
+     * rate. Excluding the unstable trailing half of the *long* window from the scan (not
+     * from the moving averages themselves, which still need full context for earlier
+     * points) is the fix — a beat there is simply picked up a tick or two later instead.
      */
     private fun findPeaks(samples: List<PpgSample>, signal: List<Double>, sampleRateHz: Double): List<Long> {
         if (signal.size < 3) return emptyList()
@@ -216,8 +228,11 @@ class PpgSignalProcessor(
             }
         }
 
+        val trailingEdgeGuard = beatWindowSamples / 2
+        val scanLimit = signal.size - 1 - trailingEdgeGuard
+
         var blockStart = -1
-        for (i in signal.indices) {
+        for (i in 0..scanLimit) {
             val aboveThreshold = maPeak[i] > maBeat[i] + alpha
             if (aboveThreshold) {
                 if (blockStart == -1) blockStart = i
@@ -226,7 +241,7 @@ class PpgSignalProcessor(
                 blockStart = -1
             }
         }
-        if (blockStart != -1) closeBlock(blockStart, signal.lastIndex)
+        if (blockStart != -1 && scanLimit >= 0) closeBlock(blockStart, scanLimit)
 
         return peaks
     }

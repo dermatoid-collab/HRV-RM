@@ -34,6 +34,18 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    non rumore: scartare proprio quelle oscillazioni abbassa artificialmente l'RMSSD
    calcolato, visto che l'RMSSD è per definizione una misura di quelle stesse oscillazioni.
    Producendo così una serie di intervalli RR "puliti" senza penalizzare chi ha HRV alta.
+   Le due correzioni sopra non bastavano da sole: una registrazione reale ha rivelato la
+   vera causa dominante di un tasso di scarto ancora troppo alto — un battito plausibile
+   accettato correttamente, seguito da una raffica di "battiti" scartati come irregular
+   spaziati di ~100ms, esattamente il ritmo di rielaborazione (`TICK_INTERVAL_MS`), non
+   un ritmo cardiaco. La media mobile lunga di Elgendi (`maBeat`) è centrata: sul bordo
+   più recente della finestra scorrevole di ogni tick non ha campioni "futuri" su cui
+   mediare, quindi il suo valore lì è sistematicamente distorto (stesso meccanismo già
+   diagnosticato per l'instabilità del grafico d'onda) — abbassando la soglia proprio
+   dove i dati non si sono ancora assestati, aprendo "blocchi" spuri quasi a ogni tick.
+   La correzione esclude dalla scansione dei picchi la metà finale (meno affidabile)
+   della finestra lunga, non le medie mobili stesse (che restano corrette per i punti
+   precedenti) — un battito reale lì viene semplicemente rilevato un tick o due più tardi.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
    standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
    "Daily score, baseline and normal range: an overview") invece di uno z-score
