@@ -68,7 +68,14 @@ class PpgSignalProcessor(
         const val ELGENDI_THRESHOLD_BETA = 0.02
 
         const val ARTIFACT_BASELINE_BEATS = 3
-        /** How many recent successive-differences (not raw IBIs) set the current tolerance. */
+        /**
+         * How much of the gap between the smoothed rhythm level and each newly-accepted
+         * beat to close. High enough to track a real trend (e.g. respiratory sinus
+         * arrhythmia) within a couple of beats; well short of 1.0 so one noisy beat can't
+         * become the entire reference the way an unsmoothed previous-beat compare did.
+         */
+        const val ARTIFACT_LEVEL_SMOOTHING = 0.4
+        /** How many recent accepted step sizes (not raw IBIs) set the current tolerance. */
         const val ARTIFACT_RECENT_WINDOW = 5
         /**
          * Floor on the accept/reject band regardless of how small recent beat-to-beat steps
@@ -251,46 +258,58 @@ class PpgSignalProcessor(
 
     /**
      * Drops beats outside the plausible heart-rate range and beats whose interval jumps
-     * too far from the *immediately preceding* accepted beat (motion artifact / missed or
-     * doubled beat) — a successive-difference check, not distance from a window median.
-     * That distinction matters: a real device recording showed a smooth, gradual RR rise
-     * over several seconds (classic respiratory sinus arrhythmia — heart rate slowing
-     * through exhale), which a window-median comparison kept flagging as "irregular" once
-     * the drift outran the median, even though each individual step was small and
-     * perfectly continuous. Comparing consecutive beats catches genuine artifacts (a real
-     * jump) exactly as well while letting a slow, real trend through — closer to Lipponen
-     * & Tarvainen (2019)'s own successive-RR-difference-based thresholds. "Too far" is
-     * this person's own recent step size (median absolute deviation of recent successive
-     * differences) — see [ARTIFACT_MAD_MULTIPLIER] — not a fixed percentage. Returns one
-     * outcome per entry in [rawIbis] (null = accepted), same order. Splitting out *why*
-     * each beat was dropped (range vs. locally irregular) is what makes a persistently
-     * high rejection rate diagnosable instead of a single opaque count.
+     * too far from this person's *recent smoothed rhythm* (motion artifact / missed or
+     * doubled beat). That reference has been through two shapes already, both wrong in
+     * opposite directions on real device recordings:
+     *  - a 5-beat window **median** lags behind a real, sustained trend (e.g. respiratory
+     *    sinus arrhythmia gradually slowing the heart rate through exhale), so beats late
+     *    in an otherwise-smooth drift got flagged "irregular" once they'd moved far enough
+     *    from a median computed a few seconds earlier;
+     *  - comparing to only the **immediately preceding** raw beat swung too far the other
+     *    way: with no smoothing at all, one noisy detection becomes the sole reference for
+     *    the next comparison, and a single bad beat can cascade into rejecting a whole run
+     *    of otherwise-fine beats until one happens to land close to the bad reference by
+     *    chance — measurably worse in practice (rejection rate went up, not down).
+     * An exponentially-smoothed level splits the difference: it moves with a real trend
+     * within a couple of beats (unlike the stale median) while still being an average of
+     * history rather than one raw sample (unlike the previous-beat compare), so a single
+     * noisy point only nudges it partway. Same idea already used for the waveform's
+     * display scale (see PpgWaveform.kt's SCALE_SMOOTHING). "Too far" is still sized by
+     * this person's own recent step-to-step variability, not a fixed percentage — see
+     * [ARTIFACT_MAD_MULTIPLIER]. Returns one outcome per entry in [rawIbis] (null =
+     * accepted), same order.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
         val minIbiMs = (60_000.0 / maxBpm).toLong()
         val maxIbiMs = (60_000.0 / minBpm).toLong()
 
-        val accepted = mutableListOf<Long>()
-        val recentSteps = mutableListOf<Long>()
         val reasons = MutableList<BeatRejectionReason?>(rawIbis.size) { null }
+        val recentSteps = mutableListOf<Double>()
+        var level: Double? = null
+        var acceptedCount = 0
 
         for ((i, ibi) in rawIbis.withIndex()) {
             if (ibi < minIbiMs || ibi > maxIbiMs) {
                 reasons[i] = BeatRejectionReason.OUT_OF_RANGE
                 continue
             }
-            if (accepted.size < ARTIFACT_BASELINE_BEATS) {
-                accepted.add(ibi)
+
+            val currentLevel = level
+            if (currentLevel == null || acceptedCount < ARTIFACT_BASELINE_BEATS) {
+                level = currentLevel?.let { it + (ibi - it) * ARTIFACT_LEVEL_SMOOTHING } ?: ibi.toDouble()
+                acceptedCount++
                 continue
             }
-            val step = abs(ibi - accepted.last())
+
+            val step = abs(ibi - currentLevel)
             val recent = recentSteps.takeLast(ARTIFACT_RECENT_WINDOW).sorted()
-            val typicalStep = if (recent.isEmpty()) 0L else recent[recent.size / 2]
-            val stepMad = if (recent.isEmpty()) 0L else recent.map { abs(it - typicalStep) }.sorted()[recent.size / 2]
+            val typicalStep = if (recent.isEmpty()) 0.0 else recent[recent.size / 2]
+            val stepMad = if (recent.isEmpty()) 0.0 else recent.map { abs(it - typicalStep) }.sorted()[recent.size / 2]
             val tolerance = maxOf(ARTIFACT_TOLERANCE_FLOOR_MS, typicalStep + stepMad * ARTIFACT_MAD_MULTIPLIER)
             if (step <= tolerance) {
-                accepted.add(ibi)
                 recentSteps.add(step)
+                level = currentLevel + (ibi - currentLevel) * ARTIFACT_LEVEL_SMOOTHING
+                acceptedCount++
             } else {
                 reasons[i] = BeatRejectionReason.IRREGULAR
             }

@@ -24,36 +24,30 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    viene così esclusa dalla **forma/larghezza** del blocco, non dal solo timing (un
    periodo refrattario fisso non basta: la tacca cade prima o dopo la soglia a seconda
    della frequenza cardiaca — causa concreta di un alto tasso di battiti scartati anche
-   con segnale visivamente pulito). Segue lo scarto degli artefatti (battiti
-   fisiologicamente implausibili o il cui intervallo si scosta troppo da **quello del
-   battito immediatamente precedente** — un confronto sulla differenza successiva, non
-   sulla distanza da una mediana di finestra — con soglia adattiva basata sulla deviazione
-   assoluta mediana dei recenti passi battito-battito di questa persona, non una
-   percentuale fissa uguale per tutti. La letteratura sull'artifact correction in HRV
-   (Lipponen & Tarvainen 2019, che usano proprio le differenze successive; gli scritti
-   dello stesso Altini su PPG) segnala che soglie fisse al 20-30% scartano troppo per chi
-   ha HRV genuinamente alta — tipicamente atleti — dove ampie oscillazioni battito-battito
-   sono normali fisiologia, non rumore: scartare proprio quelle oscillazioni abbassa
-   artificialmente l'RMSSD calcolato, visto che l'RMSSD è per definizione una misura di
-   quelle stesse oscillazioni. Il confronto con il solo battito precedente (invece che con
-   una mediana di finestra) è quello che lascia passare un **trend lento e reale** — es.
-   l'aritmia respiratoria sinusale, il battito che rallenta gradualmente durante
-   l'espirazione — senza scartarlo mano a mano che si allontana dalla mediana di qualche
-   secondo prima, pur restando ogni singolo passo piccolo e coerente: esattamente il
-   pattern trovato in una registrazione reale, dove una salita fisiologica graduale
-   veniva erroneamente scartata a metà strada.
-   Le due correzioni sopra non bastavano da sole: una registrazione reale ha rivelato la
-   vera causa dominante di un tasso di scarto ancora troppo alto — un battito plausibile
-   accettato correttamente, seguito da una raffica di "battiti" scartati come irregular
-   spaziati di ~100ms, esattamente il ritmo di rielaborazione (`TICK_INTERVAL_MS`), non
-   un ritmo cardiaco. La media mobile lunga di Elgendi (`maBeat`) è centrata: sul bordo
-   più recente della finestra scorrevole di ogni tick non ha campioni "futuri" su cui
-   mediare, quindi il suo valore lì è sistematicamente distorto (stesso meccanismo già
-   diagnosticato per l'instabilità del grafico d'onda) — abbassando la soglia proprio
-   dove i dati non si sono ancora assestati, aprendo "blocchi" spuri quasi a ogni tick.
-   La correzione esclude dalla scansione dei picchi la metà finale (meno affidabile)
-   della finestra lunga, non le medie mobili stesse (che restano corrette per i punti
-   precedenti) — un battito reale lì viene semplicemente rilevato un tick o due più tardi.
+   con segnale visivamente pulito; corretto escludendo dalla scansione dei picchi la
+   metà finale, meno affidabile, della finestra lunga — non le medie mobili stesse, che
+   restano corrette per i punti precedenti — così un battito reale lì viene semplicemente
+   rilevato un tick o due più tardi invece di generarne uno falso). Segue lo scarto degli
+   artefatti (battiti fisiologicamente implausibili o il cui intervallo si scosta troppo
+   dal **ritmo recente smorzato in modo esponenziale** di questa persona, non da una
+   percentuale fissa uguale per tutti). Il riferimento è passato per due forme sbagliate
+   in direzioni opposte prima di arrivare a questa: una mediana su finestra di 5 battiti
+   resta indietro durante un trend reale e sostenuto (es. l'aritmia respiratoria sinusale,
+   il battito che rallenta gradualmente durante l'espirazione), scartando battiti che
+   proseguivano benissimo il trend; confrontare col solo battito precedente (senza alcuno
+   smorzamento) lasciava che un singolo battito rumoroso diventasse l'unico riferimento
+   per il confronto successivo, innescando una cascata di scarti — peggio, non meglio, in
+   pratica. Una media esponenziale smorzata (stessa tecnica già usata per la scala del
+   grafico d'onda) insegue un trend reale in un paio di battiti pur restando una media
+   della storia recente, non un singolo campione grezzo — un battito rumoroso la sposta
+   solo in parte. La soglia resta comunque proporzionata alla variabilità recente
+   battito-battito di questa persona (deviazione assoluta mediana dei passi recenti), non
+   una percentuale fissa: la letteratura sull'artifact correction in HRV (Lipponen &
+   Tarvainen 2019; gli scritti dello stesso Altini su PPG) segnala che soglie fisse al
+   20-30% scartano troppo per chi ha HRV genuinamente alta — tipicamente atleti — dove
+   ampie oscillazioni battito-battito sono normale fisiologia, non rumore: scartarle
+   abbassa artificialmente l'RMSSD calcolato, che è per definizione una misura di quelle
+   stesse oscillazioni.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
    standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
    "Daily score, baseline and normal range: an overview") invece di uno z-score
