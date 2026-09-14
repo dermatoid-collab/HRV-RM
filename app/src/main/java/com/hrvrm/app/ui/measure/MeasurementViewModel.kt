@@ -1,6 +1,8 @@
 package com.hrvrm.app.ui.measure
 
 import android.app.Application
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
@@ -10,6 +12,7 @@ import com.hrvrm.app.ppg.PpgCameraSource
 import com.hrvrm.app.ppg.PpgProcessingResult
 import com.hrvrm.app.ppg.PpgSample
 import com.hrvrm.app.ppg.PpgSignalProcessor
+import java.io.File
 import java.util.Collections
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -18,6 +21,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+/** Shape of a raw-sample export file — see [MeasurementViewModel.exportRawSamplesFile]. */
+@Serializable
+private data class RawSampleExport(
+    val exportedAtEpochMs: Long,
+    val samples: List<PpgSample>,
+)
 
 class MeasurementViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -25,6 +38,12 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
     private val cameraSource = PpgCameraSource(application)
     private val processor = PpgSignalProcessor()
     private val samples = Collections.synchronizedList(mutableListOf<PpgSample>())
+
+    // Raw samples behind the most recently finished measurement, kept only in memory so the
+    // Result screen can offer a one-off export (see exportRawSamplesFile()) for offline
+    // analysis of the actual PpgSignalProcessor algorithm against real data instead of
+    // tuning its constants blind, from summary counts alone. Not persisted anywhere.
+    private var lastRawSamples: List<PpgSample> = emptyList()
 
     private var collecting = false
     private var measureJob: Job? = null
@@ -183,9 +202,30 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         return 60_000.0 / meanIbi
     }
 
+    /**
+     * Writes the raw samples behind the last finished measurement to a cache file and
+     * returns a content:// [Uri] for it (via [FileProvider]), or null if there is nothing
+     * to export yet. Caller (the Result screen) turns this into a share intent.
+     */
+    fun exportRawSamplesFile(): Uri? {
+        val toExport = lastRawSamples
+        if (toExport.isEmpty()) return null
+
+        val export = RawSampleExport(exportedAtEpochMs = System.currentTimeMillis(), samples = toExport)
+        val json = Json.encodeToString(export)
+
+        val context = getApplication<Application>()
+        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = File(dir, "hrv-rm-raw-${export.exportedAtEpochMs}.json")
+        file.writeText(json)
+
+        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    }
+
     private suspend fun finishMeasurement() {
         _uiState.value = MeasureUiState.Processing
         val snapshot = synchronized(samples) { samples.toList() }
+        lastRawSamples = snapshot
         val result = processor.process(snapshot)
         val metrics = HrvMetricsCalculator.compute(result.cleanIbiMs)
 

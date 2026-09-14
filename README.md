@@ -102,6 +102,24 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    `i` aggiunto automaticamente) — vanno inseriti entrambi così come compaiono sul
    proprio account intervals.icu.
 
+## Metodologia di tuning di `PpgSignalProcessor`
+
+Tarare le costanti di `PpgSignalProcessor` (soglia di Elgendi, moltiplicatore MAD, ecc.)
+tramite il solo ciclo build APK → test sul telefono → resoconto a voce/video era troppo
+lento e troppo "alla cieca": ogni tentativo costava minuti e restituiva solo un conteggio
+finale (validi/scartati), non il segnale con cui capire *perché*. Per rompere questo ciclo,
+il **Result screen** ha un pulsante **"Export raw data"** che condivide (via share sheet,
+`FileProvider`) un file JSON con i campioni grezzi (`timestampMs`/`intensity`) dell'ultima
+misurazione appena fatta — nient'altro, non tocca lo storico salvato. Quel file può essere
+rigirato a `PpgSignalProcessor` così com'è, ma eseguito **localmente** invece che sul
+telefono: `dev-tools/ppg_processor.py` è una trascrizione fedele (mantenuta manualmente
+in corrispondenza 1:1 con l'implementazione Kotlin, non generata da un compilatore comune
+ai due — non c'è un compilatore Kotlin in questo ambiente di sviluppo) dello stesso
+algoritmo, con ogni costante tarabile da riga di comando e una modalità `--sweep` che
+prova una griglia di combinazioni sulla stessa registrazione reale in pochi secondi. Un
+cambiamento si porta in `PpgSignalProcessor.kt` solo dopo essere stato verificato così,
+non più per tentativi sul dispositivo.
+
 ## Interfaccia
 
 - **Sempre dark**, nessuna variante chiara (`ui/theme/Theme.kt`).
@@ -115,6 +133,9 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
   esatto dello scarto (`out of range` = fuori dal range di frequenza cardiaca plausibile,
   `irregular` = troppo distante dal ritmo recente) invece di un generico "discarded" —
   utile per capire da dove viene un tasso di scarto anomalo invece di doverlo indovinare.
+- Nella schermata **Result**, il pulsante **"Export raw data"** condivide i campioni
+  grezzi dell'ultima misurazione (vedi sezione "Metodologia di tuning" sopra) — utile per
+  analisi offline, non per un uso quotidiano.
 - Toccando una misurazione in **History** si apre il dettaglio completo
   (`ui/history/MeasurementDetailScreen.kt`) con lo stesso riepilogo della schermata
   risultato (score, metriche, stato upload con retry) per quella misurazione specifica.

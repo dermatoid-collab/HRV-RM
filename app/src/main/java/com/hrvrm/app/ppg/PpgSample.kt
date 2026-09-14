@@ -1,5 +1,7 @@
 package com.hrvrm.app.ppg
 
+import kotlinx.serialization.Serializable
+
 /**
  * One raw intensity reading from the camera sensor, used as a PPG proxy.
  *
@@ -8,6 +10,7 @@ package com.hrvrm.app.ppg
  * the rear camera and torch on, blood volume changes modulate the light reaching the
  * sensor, so this value oscillates with each heartbeat.
  */
+@Serializable
 data class PpgSample(
     val timestampMs: Long,
     val intensity: Double,

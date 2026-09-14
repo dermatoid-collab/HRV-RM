@@ -1,7 +1,9 @@
 package com.hrvrm.app.ui.measure
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -131,6 +134,7 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
                 state = state,
                 onNewMeasurement = viewModel::reset,
                 onRetryUpload = viewModel::retryUpload,
+                onExportRawData = viewModel::exportRawSamplesFile,
             )
 
             is MeasureUiState.Error -> ErrorContent(state.message, onRetry = viewModel::reset)
@@ -392,8 +396,10 @@ private fun ResultContent(
     state: MeasureUiState.Result,
     onNewMeasurement: () -> Unit,
     onRetryUpload: () -> Unit,
+    onExportRawData: () -> Uri?,
 ) {
     val measurement = state.measurement
+    val context = LocalContext.current
 
     Text("Result", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(16.dp))
@@ -419,6 +425,25 @@ private fun ResultContent(
     Spacer(Modifier.height(24.dp))
     Button(onClick = onNewMeasurement) {
         Text("New measurement")
+    }
+
+    Spacer(Modifier.height(12.dp))
+    OutlinedButton(
+        onClick = {
+            val uri = onExportRawData()
+            if (uri != null) {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "Export raw HRV data"))
+            }
+        },
+    ) {
+        Icon(Icons.Filled.Share, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text("Export raw data")
     }
 }
 
