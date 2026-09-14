@@ -25,15 +25,23 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    periodo refrattario fisso non basta: la tacca cade prima o dopo la soglia a seconda
    della frequenza cardiaca — causa concreta di un alto tasso di battiti scartati anche
    con segnale visivamente pulito). Segue lo scarto degli artefatti (battiti
-   fisiologicamente implausibili o troppo distanti dal **ritmo locale della persona**,
-   non da una percentuale fissa uguale per tutti: la soglia si adatta alla deviazione
-   assoluta mediana — MAD — degli ultimi battiti accettati. La letteratura sull'artifact
-   correction in HRV (Lipponen & Tarvainen 2019; gli scritti dello stesso Altini su PPG)
-   segnala che soglie fisse al 20-30% scartano troppo per chi ha HRV genuinamente alta —
-   tipicamente atleti — dove ampie oscillazioni battito-battito sono normali fisiologia,
-   non rumore: scartare proprio quelle oscillazioni abbassa artificialmente l'RMSSD
-   calcolato, visto che l'RMSSD è per definizione una misura di quelle stesse oscillazioni.
-   Producendo così una serie di intervalli RR "puliti" senza penalizzare chi ha HRV alta.
+   fisiologicamente implausibili o il cui intervallo si scosta troppo da **quello del
+   battito immediatamente precedente** — un confronto sulla differenza successiva, non
+   sulla distanza da una mediana di finestra — con soglia adattiva basata sulla deviazione
+   assoluta mediana dei recenti passi battito-battito di questa persona, non una
+   percentuale fissa uguale per tutti. La letteratura sull'artifact correction in HRV
+   (Lipponen & Tarvainen 2019, che usano proprio le differenze successive; gli scritti
+   dello stesso Altini su PPG) segnala che soglie fisse al 20-30% scartano troppo per chi
+   ha HRV genuinamente alta — tipicamente atleti — dove ampie oscillazioni battito-battito
+   sono normali fisiologia, non rumore: scartare proprio quelle oscillazioni abbassa
+   artificialmente l'RMSSD calcolato, visto che l'RMSSD è per definizione una misura di
+   quelle stesse oscillazioni. Il confronto con il solo battito precedente (invece che con
+   una mediana di finestra) è quello che lascia passare un **trend lento e reale** — es.
+   l'aritmia respiratoria sinusale, il battito che rallenta gradualmente durante
+   l'espirazione — senza scartarlo mano a mano che si allontana dalla mediana di qualche
+   secondo prima, pur restando ogni singolo passo piccolo e coerente: esattamente il
+   pattern trovato in una registrazione reale, dove una salita fisiologica graduale
+   veniva erroneamente scartata a metà strada.
    Le due correzioni sopra non bastavano da sole: una registrazione reale ha rivelato la
    vera causa dominante di un tasso di scarto ancora troppo alto — un battito plausibile
    accettato correttamente, seguito da una raffica di "battiti" scartati come irregular

@@ -68,28 +68,31 @@ class PpgSignalProcessor(
         const val ELGENDI_THRESHOLD_BETA = 0.02
 
         const val ARTIFACT_BASELINE_BEATS = 3
+        /** How many recent successive-differences (not raw IBIs) set the current tolerance. */
         const val ARTIFACT_RECENT_WINDOW = 5
         /**
-         * Floor on the accept/reject band regardless of how uniform the recent beats look,
-         * so a short uniform stretch (MAD momentarily ~0) doesn't make the filter reject
-         * on essentially no tolerance at all.
+         * Floor on the accept/reject band regardless of how small recent beat-to-beat steps
+         * have been, so a short unusually-steady stretch (step MAD momentarily ~0) doesn't
+         * make the filter reject on essentially no tolerance at all.
          */
         const val ARTIFACT_TOLERANCE_FLOOR_MS = 80.0
         /**
-         * Scales the local median absolute deviation into an accept/reject band. A fixed
-         * percentage-of-median tolerance (this app's original approach, and still common
-         * in HRV tooling) assumes everyone has similar beat-to-beat variability — but the
-         * HRV artifact-correction literature (e.g. Lipponen & Tarvainen 2019's
-         * distribution-based thresholds; Altini's own writing on PPG artifact removal)
-         * flags that as too strict for genuinely high-HRV people, where large swings
-         * between beats are normal rather than noise: fixed 20-30% bands routinely
-         * over-reject for athletes, and over-rejection biases RMSSD down, since RMSSD is
-         * itself a measure of the very swings being discarded. Scaling the band by this
-         * person's own recent MAD instead lets someone with high genuine variability keep
-         * a wider band automatically, without hand-tuning a per-person percentage. 1.4826
-         * converts MAD to an SD-equivalent for normally-distributed data; ~3 SD is a
-         * standard outlier cutoff — this constant is an approximation of that combination,
-         * not an independently re-derived constant from a specific paper.
+         * Scales the median absolute deviation of recent successive-differences into an
+         * accept/reject band, added on top of the typical (median) step itself. A fixed
+         * percentage-of-level tolerance (this app's original approach, and still common in
+         * HRV tooling) assumes everyone has similar beat-to-beat variability — but the HRV
+         * artifact-correction literature (e.g. Lipponen & Tarvainen 2019's distribution-based
+         * thresholds; Altini's own writing on PPG artifact removal) flags that as too strict
+         * for genuinely high-HRV people, where large swings between beats are normal rather
+         * than noise: fixed 20-30% bands routinely over-reject for athletes, and
+         * over-rejection biases RMSSD down, since RMSSD is itself a measure of the very
+         * swings being discarded. Scaling the band by this person's own recent step size
+         * instead lets someone with high genuine variability (or currently mid-swing, e.g.
+         * respiratory sinus arrhythmia) keep a wider band automatically, without
+         * hand-tuning a per-person percentage. 1.4826 converts MAD to an SD-equivalent for
+         * normally-distributed data; ~3 SD is a standard outlier cutoff — this constant is
+         * an approximation of that combination, not an independently re-derived constant
+         * from a specific paper.
          */
         const val ARTIFACT_MAD_MULTIPLIER = 4.5
     }
@@ -248,19 +251,27 @@ class PpgSignalProcessor(
 
     /**
      * Drops beats outside the plausible heart-rate range and beats whose interval jumps
-     * too far from the local rhythm (motion artifact / missed or doubled beat). "Too far"
-     * is judged against this person's own recent beat-to-beat variability (median absolute
-     * deviation), not a fixed percentage — see [ARTIFACT_MAD_MULTIPLIER]. Returns one
-     * outcome per entry in [rawIbis] (null = accepted), same order — a rejected interval
-     * doesn't join the running "recent" window used to judge the ones after it. Splitting
-     * out *why* each beat was dropped (range vs. locally irregular) is what makes a
-     * persistently high rejection rate diagnosable instead of a single opaque count.
+     * too far from the *immediately preceding* accepted beat (motion artifact / missed or
+     * doubled beat) — a successive-difference check, not distance from a window median.
+     * That distinction matters: a real device recording showed a smooth, gradual RR rise
+     * over several seconds (classic respiratory sinus arrhythmia — heart rate slowing
+     * through exhale), which a window-median comparison kept flagging as "irregular" once
+     * the drift outran the median, even though each individual step was small and
+     * perfectly continuous. Comparing consecutive beats catches genuine artifacts (a real
+     * jump) exactly as well while letting a slow, real trend through — closer to Lipponen
+     * & Tarvainen (2019)'s own successive-RR-difference-based thresholds. "Too far" is
+     * this person's own recent step size (median absolute deviation of recent successive
+     * differences) — see [ARTIFACT_MAD_MULTIPLIER] — not a fixed percentage. Returns one
+     * outcome per entry in [rawIbis] (null = accepted), same order. Splitting out *why*
+     * each beat was dropped (range vs. locally irregular) is what makes a persistently
+     * high rejection rate diagnosable instead of a single opaque count.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
         val minIbiMs = (60_000.0 / maxBpm).toLong()
         val maxIbiMs = (60_000.0 / minBpm).toLong()
 
         val accepted = mutableListOf<Long>()
+        val recentSteps = mutableListOf<Long>()
         val reasons = MutableList<BeatRejectionReason?>(rawIbis.size) { null }
 
         for ((i, ibi) in rawIbis.withIndex()) {
@@ -272,12 +283,14 @@ class PpgSignalProcessor(
                 accepted.add(ibi)
                 continue
             }
-            val recent = accepted.takeLast(ARTIFACT_RECENT_WINDOW).sorted()
-            val median = recent[recent.size / 2]
-            val mad = recent.map { abs(it - median) }.sorted()[recent.size / 2]
-            val tolerance = maxOf(ARTIFACT_TOLERANCE_FLOOR_MS, mad * ARTIFACT_MAD_MULTIPLIER)
-            if (abs(ibi - median) <= tolerance) {
+            val step = abs(ibi - accepted.last())
+            val recent = recentSteps.takeLast(ARTIFACT_RECENT_WINDOW).sorted()
+            val typicalStep = if (recent.isEmpty()) 0L else recent[recent.size / 2]
+            val stepMad = if (recent.isEmpty()) 0L else recent.map { abs(it - typicalStep) }.sorted()[recent.size / 2]
+            val tolerance = maxOf(ARTIFACT_TOLERANCE_FLOOR_MS, typicalStep + stepMad * ARTIFACT_MAD_MULTIPLIER)
+            if (step <= tolerance) {
                 accepted.add(ibi)
+                recentSteps.add(step)
             } else {
                 reasons[i] = BeatRejectionReason.IRREGULAR
             }
