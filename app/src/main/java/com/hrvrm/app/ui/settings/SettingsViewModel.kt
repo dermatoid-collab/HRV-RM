@@ -84,11 +84,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /**
-     * Writes a placeholder value to today's HRVRM field only — lets you confirm the
-     * custom field itself accepts writes. Leaves hrv/hrvSDNN/restingHR alone, so
-     * today's real values are untouched.
-     */
+    /** Writes a placeholder value to today's HRVRM field — lets you confirm it accepts writes. */
     fun sendTestHrvValue() {
         viewModelScope.launch {
             _uiState.update { it.copy(testHrvInProgress = true, testHrvResult = null) }

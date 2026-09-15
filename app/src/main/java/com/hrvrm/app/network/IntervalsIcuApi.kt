@@ -10,15 +10,13 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Fields understood by Intervals.icu's per-day wellness entry. Only the HRV-related ones
- * are populated here; unset fields are omitted and left untouched server-side.
+ * Fields understood by Intervals.icu's per-day wellness entry. Only HRVRM is populated
+ * here (unset fields are omitted and left untouched server-side) — this app deliberately
+ * uploads just its own custom field, not hrv/hrvSDNN/restingHR, so it never overwrites
+ * values another integration (or manual entry) may already own for that day.
  */
 @Serializable
 data class WellnessUpdate(
-    /** rMSSD in ms — this is the field Intervals.icu's own HRV integrations (e.g. HRV4Training) populate. */
-    val hrv: Double? = null,
-    val hrvSDNN: Double? = null,
-    val restingHR: Int? = null,
     /**
      * Custom wellness field on this athlete's Intervals.icu account. Holds the
      * HRV4Training-style ln-scale reading (roughly 6-10), not the app's own 0-100

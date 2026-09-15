@@ -21,10 +21,7 @@ class IntervalsIcuRepository(
 
     suspend fun uploadHrv(
         measurementEpochMs: Long,
-        rmssdMs: Double,
-        sdnnMs: Double,
         hrvRmValue: Double,
-        restingHrBpm: Int?,
     ): UploadResult {
         val apiKey = settingsStore.apiKey.first()
         val athleteId = settingsStore.athleteId.first()
@@ -40,12 +37,7 @@ class IntervalsIcuRepository(
             .toLocalDate()
             .format(dateFormatter)
 
-        val body = WellnessUpdate(
-            hrv = roundTo(rmssdMs, 2),
-            hrvSDNN = roundTo(sdnnMs, 2),
-            restingHR = restingHrBpm,
-            hrvRmValue = roundTo(hrvRmValue, 1),
-        )
+        val body = WellnessUpdate(hrvRmValue = roundTo(hrvRmValue, 1))
 
         return try {
             val api = IntervalsIcuClientFactory.create(apiKey)
@@ -93,11 +85,7 @@ class IntervalsIcuRepository(
         }
     }
 
-    /**
-     * Writes a placeholder value to today's HRVRM custom field only (hrv/hrvSDNN/
-     * restingHR are left unset, so today's already-uploaded real values aren't
-     * touched — PUT only sets the fields present in the body).
-     */
+    /** Writes a placeholder value to today's HRVRM custom field — same call uploadHrv makes. */
     suspend fun sendTestHrvScore(testValue: Double): UploadResult {
         val apiKey = settingsStore.apiKey.first()
         val athleteId = settingsStore.athleteId.first()
