@@ -11,3 +11,4 @@
 *.aab
 /app/build
 /app/release
+__pycache__/

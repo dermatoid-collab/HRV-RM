@@ -413,7 +413,11 @@ private fun ResultContent(
             MetricRow("Average heart rate", "${measurement.meanHrBpm.roundToInt()} bpm")
             MetricRow("RMSSD", "${measurement.rmssdMs.roundToInt()} ms")
             MetricRow("Normalized HRV", "%.1f %%".format(measurement.normalizedHrvPercent))
+            MetricRow("Mean RR", "${measurement.meanIbiMs.roundToInt()} ms")
             MetricRow("SDNN", "${measurement.sdnnMs.roundToInt()} ms")
+            MetricRow("Poincaré SD1", "${measurement.sd1Ms.roundToInt()} ms")
+            MetricRow("Poincaré SD2", "${measurement.sd2Ms.roundToInt()} ms")
+            MetricRow("Stress index", "%.1f".format(measurement.stressIndex))
             MetricRow("pNN50", "${measurement.pnn50Percent.roundToInt()} %")
             MetricRow("Valid beats", "${measurement.beatCount} (${measurement.rejectedBeatCount} rejected)")
         }

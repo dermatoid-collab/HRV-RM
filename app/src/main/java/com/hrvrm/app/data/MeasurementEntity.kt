@@ -16,6 +16,14 @@ data class MeasurementEntity(
     val pnn50Percent: Double,
     /** RMSSD/meanRR x 100 — corrects for RMSSD being structurally lower at higher heart rates. */
     val normalizedHrvPercent: Double,
+    /** Mean inter-beat interval (ms) — "Mean RR" in most HRV apps. */
+    val meanIbiMs: Double,
+    /** Poincaré plot short-term variability: RMSSD/sqrt(2). */
+    val sd1Ms: Double,
+    /** Poincaré plot long-term variability: sqrt(2*SDNN^2 - SD1^2). */
+    val sd2Ms: Double,
+    /** Baevsky's Stress Index — see HrvMetricsCalculator.stressIndex. */
+    val stressIndex: Double,
     val beatCount: Int,
     val rejectedBeatCount: Int,
     /** Null while the personal baseline is still being built up (fewer than 7 prior readings). */

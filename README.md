@@ -72,8 +72,32 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    range considerato accettabile in letteratura (5-14%), con una frequenza cardiaca
    finale coerente e un andamento fluido, compatibile con una normale aritmia
    respiratoria sinusale.
-3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, pNN50, frequenza media da letteratura
-   standard. L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
+3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, Mean RR, pNN50, frequenza media da
+   letteratura standard, più due metriche aggiunte confrontando l'app con **Kubios HRV**
+   (altra app di riferimento nel settore):
+   - **Poincaré SD1/SD2** — non richiedono nuovi calcoli: sono formule chiuse su RMSSD e
+     SDNN già disponibili (`SD1 = RMSSD/√2`, `SD2 = √(2·SDNN² − SD1²)`);
+   - **Stress Index di Baevsky** (`hrv/HrvMetrics.kt`, `stressIndex()`) — dalla
+     letteratura di medicina spaziale/cardiovascolare (Baevsky & Chernikova): istogramma
+     degli RR puliti (bin da 50ms), poi `SI = AMo / (2 × Mo × MxDMn)` dove Mo è il centro
+     del bin più popolato (la "moda", in secondi), AMo la percentuale di battiti in quel
+     bin, MxDMn l'escursione RR max−min (in secondi). Un valore alto indica una
+     distribuzione stretta e piccata (poca variabilità), uno basso una distribuzione
+     larga. I dettagli di binning/stima della moda variano da implementazione a
+     implementazione, quindi il numero non è detto coincida esattamente con quello di
+     un'altra app, solo la stessa scala generale.
+
+   Restano **fuori scope** per ora, confrontati con Kubios: PNS/SNS index e Physiological
+   age (indici proprietari confrontati con un database normativo di popolazione che non
+   abbiamo — replicabili solo come "versione nostra" tarata sulla baseline personale, non
+   comparabile numericamente); Readiness % (quasi certamente combina HRV con sonno e
+   carico di allenamento, dati che l'app non raccoglie); Respiratory rate, LF/HF power
+   (richiedono un modulo di analisi spettrale nuovo — interpolazione della serie RR più
+   stima della densità spettrale — e le linee guida standard raccomandano almeno 2-5
+   minuti di registrazione per una stima affidabile della componente LF, contro i 60
+   secondi del protocollo attuale).
+
+   L'**HRV Score** ricalca la metodologia pubblicata da HRV4Training (Altini,
    "Daily score, baseline and normal range: an overview") invece di uno z-score
    sul singolo giorno:
    - il valore confrontato con la baseline è una **media mobile delle ultime 7
