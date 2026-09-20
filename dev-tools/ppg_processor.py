@@ -215,13 +215,23 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
     recording showed exactly this signature: 2-6 consecutive rejections sharing the
     identical level, all on lengthening beats, all part of one smooth real deceleration.
 
-    After `artifact_resync_after_rejects` consecutive rejections, resyncing the level to
-    the *median* of the last `artifact_resync_window` raw (unfiltered) IBIs breaks the
-    lockout: a real sustained trend has several mutually consistent raw values for the
-    median to lock onto, while a single true artifact (no consistent neighbors) doesn't
-    drag the median far. Verified against the recording that exposed this (13/66 rejected
-    -> 8), an earlier one (6/57 -> 3), and a clean synthetic signal (unaffected -- it never
-    triggers 3 consecutive rejections in the first place).
+    After `artifact_resync_after_rejects` consecutive **lengthening** rejections (IBI above
+    the reference -- deceleration), resyncing the level to the *median* of the last
+    `artifact_resync_window` raw (unfiltered) IBIs breaks the lockout: a real sustained
+    trend has several mutually consistent raw values for the median to lock onto, while a
+    single true artifact (no consistent neighbors) doesn't drag the median far. Verified
+    against the recording that exposed this (13/66 rejected -> 8), an earlier one (6/57 ->
+    3), and a clean synthetic signal (unaffected -- it never triggers 3 consecutive
+    rejections in the first place).
+
+    Deliberately **not** applied to shortening rejections (IBI below the reference --
+    acceleration): both recordings above show long lengthening-rejection streaks (up to 6)
+    but *zero* shortening streaks of even 2, so there is no real-world evidence a
+    shortening lockout is a real problem here -- and a real motion artifact (finger
+    movement, pressure change) is far more likely to produce a run of spuriously *short*
+    IBIs than long ones, so resyncing onto such a run would be adopting the artifact as the
+    new normal rather than continuing to (correctly) reject it. Only extend this to
+    shortening once a real recording actually shows the same lockout signature there.
     """
     min_ibi_ms = 60_000.0 / p.max_bpm
     max_ibi_ms = 60_000.0 / p.min_bpm
@@ -230,12 +240,12 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
     recent_steps: list[float] = []
     level: float | None = None
     accepted_count = 0
-    consecutive_rejects = 0
+    consecutive_lengthen_rejects = 0
 
     for i, ibi in enumerate(raw_ibis):
         if ibi < min_ibi_ms or ibi > max_ibi_ms:
             reasons[i] = "OUT_OF_RANGE"
-            consecutive_rejects = 0
+            consecutive_lengthen_rejects = 0
             continue
 
         current_level = level
@@ -243,7 +253,7 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
             level = (current_level + (ibi - current_level) * p.artifact_level_smoothing
                      if current_level is not None else float(ibi))
             accepted_count += 1
-            consecutive_rejects = 0
+            consecutive_lengthen_rejects = 0
             continue
 
         step = abs(ibi - current_level)
@@ -257,15 +267,18 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
             recent_steps.append(step)
             level = current_level + (ibi - current_level) * p.artifact_level_smoothing
             accepted_count += 1
-            consecutive_rejects = 0
+            consecutive_lengthen_rejects = 0
         else:
             reasons[i] = "IRREGULAR"
-            consecutive_rejects += 1
-            if consecutive_rejects >= p.artifact_resync_after_rejects:
-                window_start = max(0, i - p.artifact_resync_window + 1)
-                level = statistics.median(raw_ibis[window_start:i + 1])
-                recent_steps.clear()
-                consecutive_rejects = 0
+            if ibi > current_level:
+                consecutive_lengthen_rejects += 1
+                if consecutive_lengthen_rejects >= p.artifact_resync_after_rejects:
+                    window_start = max(0, i - p.artifact_resync_window + 1)
+                    level = statistics.median(raw_ibis[window_start:i + 1])
+                    recent_steps.clear()
+                    consecutive_lengthen_rejects = 0
+            else:
+                consecutive_lengthen_rejects = 0
 
     return reasons
 

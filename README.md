@@ -92,6 +92,12 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    coerenti) non la sposta di molto. Verificato sulla registrazione che ha rivelato il
    problema (13 scarti su 66 battiti → 8) e su una precedente (6 su 57 → 3), senza
    alcun effetto sul segnale sintetico pulito usato come controllo di regressione.
+   Deliberatamente **non** applicato agli accorciamenti (RR che si accorcia): entrambe le
+   registrazioni mostrano catene di scarti in allungamento fino a 6 di fila ma **zero**
+   scarti consecutivi in accorciamento — nessuna prova reale che serva anche lì, e un
+   vero artefatto da movimento del dito produce più facilmente battiti spuri *brevi* che
+   lunghi, quindi riallinearsi su una catena di accorciamenti rischierebbe di adottare
+   l'artefatto come nuovo normale invece di continuare (giustamente) a scartarlo.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, Mean RR, pNN50, frequenza media da
    letteratura standard, più due metriche aggiunte confrontando l'app con **Kubios HRV**
    (altra app di riferimento nel settore):

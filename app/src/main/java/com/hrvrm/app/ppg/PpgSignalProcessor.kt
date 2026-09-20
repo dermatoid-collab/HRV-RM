@@ -343,14 +343,23 @@ class PpgSignalProcessor(
      * lockout that only breaks once the trend happens to loop back near the frozen value.
      * The exported recording showed exactly this signature — 2-6 consecutive rejections
      * sharing the identical `level`, all on lengthening beats, all part of one smooth
-     * real deceleration. After [ARTIFACT_RESYNC_AFTER_REJECTS] consecutive rejections,
-     * resyncing the level to the *median* of the last [ARTIFACT_RESYNC_WINDOW] raw
-     * (unfiltered) IBIs breaks the lockout: a real sustained trend has several mutually
-     * consistent raw values for the median to lock onto, while a single true artifact
-     * (no consistent neighbors) doesn't drag the median far. Verified against that
-     * recording (13 of 66 beats rejected -> 8), an earlier one from this app (6 of 57 ->
-     * 3), and a clean synthetic signal (unaffected, as it should be — never triggers 3
-     * consecutive rejections in the first place).
+     * real deceleration. After [ARTIFACT_RESYNC_AFTER_REJECTS] consecutive **lengthening**
+     * rejections (IBI above the reference), resyncing the level to the *median* of the
+     * last [ARTIFACT_RESYNC_WINDOW] raw (unfiltered) IBIs breaks the lockout: a real
+     * sustained trend has several mutually consistent raw values for the median to lock
+     * onto, while a single true artifact (no consistent neighbors) doesn't drag the
+     * median far. Verified against that recording (13 of 66 beats rejected -> 8), an
+     * earlier one from this app (6 of 57 -> 3), and a clean synthetic signal (unaffected,
+     * as it should be — never triggers 3 consecutive rejections in the first place).
+     *
+     * Deliberately **not** applied to shortening rejections (IBI below the reference):
+     * both recordings above show lengthening-rejection streaks up to 6 long but *zero*
+     * shortening streaks of even 2, so there's no real-world evidence a shortening
+     * lockout is a real problem here — and a real motion artifact (finger movement,
+     * pressure change) is far more likely to produce a run of spuriously *short* IBIs
+     * than long ones, so resyncing onto such a run would mean adopting the artifact as
+     * the new normal instead of continuing to (correctly) reject it. Only extend this to
+     * shortening once a real recording actually shows the same lockout signature there.
      *
      * Returns one outcome per entry in [rawIbis] (null = accepted), same order.
      */
@@ -362,12 +371,12 @@ class PpgSignalProcessor(
         val recentSteps = mutableListOf<Double>()
         var level: Double? = null
         var acceptedCount = 0
-        var consecutiveRejects = 0
+        var consecutiveLengthenRejects = 0
 
         for ((i, ibi) in rawIbis.withIndex()) {
             if (ibi < minIbiMs || ibi > maxIbiMs) {
                 reasons[i] = BeatRejectionReason.OUT_OF_RANGE
-                consecutiveRejects = 0
+                consecutiveLengthenRejects = 0
                 continue
             }
 
@@ -375,7 +384,7 @@ class PpgSignalProcessor(
             if (currentLevel == null || acceptedCount < ARTIFACT_BASELINE_BEATS) {
                 level = currentLevel?.let { it + (ibi - it) * ARTIFACT_LEVEL_SMOOTHING } ?: ibi.toDouble()
                 acceptedCount++
-                consecutiveRejects = 0
+                consecutiveLengthenRejects = 0
                 continue
             }
 
@@ -389,15 +398,19 @@ class PpgSignalProcessor(
                 recentSteps.add(step)
                 level = currentLevel + (ibi - currentLevel) * ARTIFACT_LEVEL_SMOOTHING
                 acceptedCount++
-                consecutiveRejects = 0
+                consecutiveLengthenRejects = 0
             } else {
                 reasons[i] = BeatRejectionReason.IRREGULAR
-                consecutiveRejects++
-                if (consecutiveRejects >= ARTIFACT_RESYNC_AFTER_REJECTS) {
-                    val windowStart = maxOf(0, i - ARTIFACT_RESYNC_WINDOW + 1)
-                    level = medianOf(rawIbis.subList(windowStart, i + 1))
-                    recentSteps.clear()
-                    consecutiveRejects = 0
+                if (ibi > currentLevel) {
+                    consecutiveLengthenRejects++
+                    if (consecutiveLengthenRejects >= ARTIFACT_RESYNC_AFTER_REJECTS) {
+                        val windowStart = maxOf(0, i - ARTIFACT_RESYNC_WINDOW + 1)
+                        level = medianOf(rawIbis.subList(windowStart, i + 1))
+                        recentSteps.clear()
+                        consecutiveLengthenRejects = 0
+                    }
+                } else {
+                    consecutiveLengthenRejects = 0
                 }
             }
         }
