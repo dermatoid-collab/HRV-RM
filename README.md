@@ -71,7 +71,27 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    correzione, quella registrazione (70% scartati in origine) scende all'11%, dentro il
    range considerato accettabile in letteratura (5-14%), con una frequenza cardiaca
    finale coerente e un andamento fluido, compatibile con una normale aritmia
-   respiratoria sinusale.
+   respiratoria sinusale. Restava un'ultima causa di scarto, individuata dall'utente
+   stesso osservando il log live dei battiti: gli scarti si accumulavano quando il
+   battito **rallentava** (RR che si allunga, il lato espiratorio dell'aritmia
+   respiratoria sinusale), non quando accelerava. La letteratura sulla "heart rate
+   asymmetry" conferma che le decelerazioni sono tipicamente più ripide e sostenute
+   delle accelerazioni (il vago reagisce rapidissimo, il suo ritiro è invece lento) —
+   quindi un vero rallentamento dura spesso diversi battiti di fila. Il riferimento
+   smorzato però si aggiorna **solo sui battiti accettati**: se il primo battito di un
+   rallentamento reale viene scartato come salto troppo grande, il riferimento resta
+   congelato lì, il battito successivo dello stesso trend sembra un salto ancora più
+   grande dallo stesso riferimento ormai vecchio, e così via — un blocco che si
+   autoalimenta finché il trend non torna per caso vicino al valore congelato. La
+   registrazione esportata mostrava esattamente questa firma: gruppi di 2-6 scarti
+   consecutivi con lo *stesso identico* riferimento, tutti su battiti in allungamento,
+   tutti parte dello stesso rallentamento reale e fluido. Corretto facendo sì che, dopo
+   3 scarti consecutivi, il riferimento si "riallinei" alla mediana degli ultimi 5
+   intervalli grezzi (non filtrati): un trend reale ha diversi valori grezzi coerenti fra
+   loro su cui la mediana può agganciarsi, mentre un vero artefatto isolato (senza vicini
+   coerenti) non la sposta di molto. Verificato sulla registrazione che ha rivelato il
+   problema (13 scarti su 66 battiti → 8) e su una precedente (6 su 57 → 3), senza
+   alcun effetto sul segnale sintetico pulito usato come controllo di regressione.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, Mean RR, pNN50, frequenza media da
    letteratura standard, più due metriche aggiunte confrontando l'app con **Kubios HRV**
    (altra app di riferimento nel settore):

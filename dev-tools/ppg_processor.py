@@ -101,6 +101,13 @@ class Params:
     # artifacts (a missed/doubled beat still jumps by roughly +-100%).
     artifact_tolerance_floor_fraction: float = 0.25
     artifact_mad_multiplier: float = 4.5
+    # After this many consecutive rejections, reject_artifacts() gives up defending the old
+    # reference level and resyncs it -- see reject_artifacts()'s docstring for the real
+    # recording evidence (rejections clustering on lengthening/exhale-phase beats, sharing
+    # one frozen level across a 2-6-beat run) behind this.
+    artifact_resync_after_rejects: int = 3
+    # How many recent raw (not just accepted) IBIs the resync median is taken over.
+    artifact_resync_window: int = 5
 
 
 def moving_average(values: list[float], window_samples: int) -> list[float]:
@@ -193,7 +200,29 @@ def find_peaks(samples: list[Sample], signal: list[float], sample_rate_hz: float
 
 
 def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
-    """Kotlin: PpgSignalProcessor.rejectArtifacts -- EWMA-referenced, MAD-scaled tolerance."""
+    """Kotlin: PpgSignalProcessor.rejectArtifacts -- EWMA-referenced, MAD-scaled tolerance,
+    with a resync after a run of consecutive rejections.
+
+    The EWMA level only moves on an *accepted* beat. A real recording showed rejections
+    clustering specifically on beats where the RR interval was lengthening (heart rate
+    slowing -- the exhale half of respiratory sinus arrhythmia): the heart-rate-asymmetry
+    literature confirms decelerations are typically steeper/more sustained than
+    accelerations (fast vagal reactivation, slower withdrawal), so a real deceleration
+    often runs for several beats. If the first beat of that run gets rejected as too big a
+    jump, the level freezes there -- the next beat of the SAME real trend looks like an
+    even bigger jump from the same stale reference, and so on: a self-reinforcing lockout
+    that only breaks once the trend loops back near the frozen value. The exported
+    recording showed exactly this signature: 2-6 consecutive rejections sharing the
+    identical level, all on lengthening beats, all part of one smooth real deceleration.
+
+    After `artifact_resync_after_rejects` consecutive rejections, resyncing the level to
+    the *median* of the last `artifact_resync_window` raw (unfiltered) IBIs breaks the
+    lockout: a real sustained trend has several mutually consistent raw values for the
+    median to lock onto, while a single true artifact (no consistent neighbors) doesn't
+    drag the median far. Verified against the recording that exposed this (13/66 rejected
+    -> 8), an earlier one (6/57 -> 3), and a clean synthetic signal (unaffected -- it never
+    triggers 3 consecutive rejections in the first place).
+    """
     min_ibi_ms = 60_000.0 / p.max_bpm
     max_ibi_ms = 60_000.0 / p.min_bpm
 
@@ -201,10 +230,12 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
     recent_steps: list[float] = []
     level: float | None = None
     accepted_count = 0
+    consecutive_rejects = 0
 
     for i, ibi in enumerate(raw_ibis):
         if ibi < min_ibi_ms or ibi > max_ibi_ms:
             reasons[i] = "OUT_OF_RANGE"
+            consecutive_rejects = 0
             continue
 
         current_level = level
@@ -212,6 +243,7 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
             level = (current_level + (ibi - current_level) * p.artifact_level_smoothing
                      if current_level is not None else float(ibi))
             accepted_count += 1
+            consecutive_rejects = 0
             continue
 
         step = abs(ibi - current_level)
@@ -225,8 +257,15 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
             recent_steps.append(step)
             level = current_level + (ibi - current_level) * p.artifact_level_smoothing
             accepted_count += 1
+            consecutive_rejects = 0
         else:
             reasons[i] = "IRREGULAR"
+            consecutive_rejects += 1
+            if consecutive_rejects >= p.artifact_resync_after_rejects:
+                window_start = max(0, i - p.artifact_resync_window + 1)
+                level = statistics.median(raw_ibis[window_start:i + 1])
+                recent_steps.clear()
+                consecutive_rejects = 0
 
     return reasons
 
@@ -290,6 +329,8 @@ def main() -> None:
     ap.add_argument("--level-smoothing", type=float, help="Artifact EWMA smoothing factor (default 0.6)")
     ap.add_argument("--tolerance-floor-fraction", type=float, help="Artifact tolerance floor, x current level (default 0.25)")
     ap.add_argument("--recent-window", type=int, help="Artifact recent-step window (default 5)")
+    ap.add_argument("--resync-after", type=int, help="Consecutive rejections before resyncing the level (default 3)")
+    ap.add_argument("--resync-window", type=int, help="Raw IBIs the resync median is taken over (default 5)")
     ap.add_argument("--dump-events", action="store_true", help="Print every beat with its accept/reject outcome")
     ap.add_argument("--sweep", action="store_true", help="Grid-search common knobs and rank by rejection rate")
     args = ap.parse_args()
@@ -328,6 +369,10 @@ def main() -> None:
         p.artifact_tolerance_floor_fraction = args.tolerance_floor_fraction
     if args.recent_window is not None:
         p.artifact_recent_window = args.recent_window
+    if args.resync_after is not None:
+        p.artifact_resync_after_rejects = args.resync_after
+    if args.resync_window is not None:
+        p.artifact_resync_window = args.resync_window
 
     result = process(samples, p)
     print(summarize(result))

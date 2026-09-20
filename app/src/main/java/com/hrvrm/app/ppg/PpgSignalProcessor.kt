@@ -122,6 +122,16 @@ class PpgSignalProcessor(
          * from a specific paper.
          */
         const val ARTIFACT_MAD_MULTIPLIER = 4.5
+        /**
+         * After this many consecutive rejections, [rejectArtifacts] gives up defending the
+         * old reference level and resyncs it — see the doc comment on [rejectArtifacts] for
+         * the real-recording evidence behind this. Low enough to break a lockout within a
+         * beat or two of it starting, high enough that one or two genuinely artifactual
+         * beats in a row don't immediately drag the reference onto them.
+         */
+        const val ARTIFACT_RESYNC_AFTER_REJECTS = 3
+        /** How many recent raw (not just accepted) IBIs the resync median is taken over. */
+        const val ARTIFACT_RESYNC_WINDOW = 5
     }
 
     fun process(samples: List<PpgSample>): PpgProcessingResult {
@@ -319,6 +329,29 @@ class PpgSignalProcessor(
      * display scale (see PpgWaveform.kt's SCALE_SMOOTHING). "Too far" is still sized by
      * this person's own recent step-to-step variability, not a fixed percentage — see
      * [ARTIFACT_MAD_MULTIPLIER] and, for the floor under it, [ARTIFACT_TOLERANCE_FLOOR_FRACTION].
+     *
+     * That still leaves one lockout the EWMA level doesn't fix on its own, found by
+     * exporting a real recording where rejections clustered specifically on beats where
+     * the RR interval was *lengthening* (heart rate slowing — the exhale half of
+     * respiratory sinus arrhythmia): the heart-rate-asymmetry literature confirms
+     * decelerations are typically steeper/more sustained than accelerations (vagal
+     * reactivation is fast; withdrawal is comparatively slow), so a real deceleration
+     * often runs for several beats in a row. [level] only moves on an *accepted* beat —
+     * if the first beat of that run is (correctly or not) rejected as too big a jump, the
+     * level freezes right there, so the second beat of the same real trend looks like an
+     * even bigger jump from the same stale reference, and so on: a self-reinforcing
+     * lockout that only breaks once the trend happens to loop back near the frozen value.
+     * The exported recording showed exactly this signature — 2-6 consecutive rejections
+     * sharing the identical `level`, all on lengthening beats, all part of one smooth
+     * real deceleration. After [ARTIFACT_RESYNC_AFTER_REJECTS] consecutive rejections,
+     * resyncing the level to the *median* of the last [ARTIFACT_RESYNC_WINDOW] raw
+     * (unfiltered) IBIs breaks the lockout: a real sustained trend has several mutually
+     * consistent raw values for the median to lock onto, while a single true artifact
+     * (no consistent neighbors) doesn't drag the median far. Verified against that
+     * recording (13 of 66 beats rejected -> 8), an earlier one from this app (6 of 57 ->
+     * 3), and a clean synthetic signal (unaffected, as it should be — never triggers 3
+     * consecutive rejections in the first place).
+     *
      * Returns one outcome per entry in [rawIbis] (null = accepted), same order.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
@@ -329,10 +362,12 @@ class PpgSignalProcessor(
         val recentSteps = mutableListOf<Double>()
         var level: Double? = null
         var acceptedCount = 0
+        var consecutiveRejects = 0
 
         for ((i, ibi) in rawIbis.withIndex()) {
             if (ibi < minIbiMs || ibi > maxIbiMs) {
                 reasons[i] = BeatRejectionReason.OUT_OF_RANGE
+                consecutiveRejects = 0
                 continue
             }
 
@@ -340,6 +375,7 @@ class PpgSignalProcessor(
             if (currentLevel == null || acceptedCount < ARTIFACT_BASELINE_BEATS) {
                 level = currentLevel?.let { it + (ibi - it) * ARTIFACT_LEVEL_SMOOTHING } ?: ibi.toDouble()
                 acceptedCount++
+                consecutiveRejects = 0
                 continue
             }
 
@@ -353,10 +389,24 @@ class PpgSignalProcessor(
                 recentSteps.add(step)
                 level = currentLevel + (ibi - currentLevel) * ARTIFACT_LEVEL_SMOOTHING
                 acceptedCount++
+                consecutiveRejects = 0
             } else {
                 reasons[i] = BeatRejectionReason.IRREGULAR
+                consecutiveRejects++
+                if (consecutiveRejects >= ARTIFACT_RESYNC_AFTER_REJECTS) {
+                    val windowStart = maxOf(0, i - ARTIFACT_RESYNC_WINDOW + 1)
+                    level = medianOf(rawIbis.subList(windowStart, i + 1))
+                    recentSteps.clear()
+                    consecutiveRejects = 0
+                }
             }
         }
         return reasons
+    }
+
+    private fun medianOf(values: List<Long>): Double {
+        val sorted = values.sorted()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2.0 else sorted[mid].toDouble()
     }
 }
