@@ -93,6 +93,9 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
+    // Weekly backup reminder notification (see backup/BackupReminderWorker.kt).
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")

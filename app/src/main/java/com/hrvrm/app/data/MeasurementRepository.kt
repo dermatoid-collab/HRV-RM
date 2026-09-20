@@ -6,6 +6,7 @@ import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -75,5 +76,36 @@ class MeasurementRepository(
         }
         dao.update(updated)
         return updated
+    }
+
+    /** The full local history as a JSON [MeasurementBackup] — see that type's doc comment. */
+    suspend fun exportBackupJson(): String {
+        val backup = MeasurementBackup(
+            exportedAtEpochMs = System.currentTimeMillis(),
+            measurements = dao.getAllOnce(),
+        )
+        return json.encodeToString(backup)
+    }
+
+    /**
+     * Restores measurements from a JSON [MeasurementBackup], skipping any whose
+     * [MeasurementEntity.timestampEpochMs] already exists locally (re-importing the same
+     * backup, or importing onto a device that isn't fully empty, must not duplicate rows).
+     * Imported rows get a fresh, locally-assigned id — the backup's own ids are only
+     * meaningful on the device that produced them.
+     */
+    suspend fun importBackupJson(jsonText: String): BackupImportResult {
+        val backup = json.decodeFromString<MeasurementBackup>(jsonText)
+        val existingTimestamps = dao.getAllTimestamps().toSet()
+        val toInsert = backup.measurements
+            .filter { it.timestampEpochMs !in existingTimestamps }
+            .map { it.copy(id = 0) }
+
+        if (toInsert.isNotEmpty()) dao.insertAll(toInsert)
+
+        return BackupImportResult(
+            imported = toInsert.size,
+            skippedAlreadyPresent = backup.measurements.size - toInsert.size,
+        )
     }
 }

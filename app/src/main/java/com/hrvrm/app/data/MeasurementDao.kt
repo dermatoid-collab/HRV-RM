@@ -12,11 +12,21 @@ interface MeasurementDao {
     @Insert
     suspend fun insert(measurement: MeasurementEntity): Long
 
+    @Insert
+    suspend fun insertAll(measurements: List<MeasurementEntity>)
+
     @Update
     suspend fun update(measurement: MeasurementEntity)
 
     @Query("SELECT * FROM measurements ORDER BY timestampEpochMs DESC")
     fun observeAll(): Flow<List<MeasurementEntity>>
+
+    @Query("SELECT * FROM measurements ORDER BY timestampEpochMs DESC")
+    suspend fun getAllOnce(): List<MeasurementEntity>
+
+    /** Used to skip already-present rows on backup import — see [MeasurementRepository.importBackupJson]. */
+    @Query("SELECT timestampEpochMs FROM measurements")
+    suspend fun getAllTimestamps(): List<Long>
 
     @Query("SELECT * FROM measurements WHERE id = :id")
     suspend fun getById(id: Long): MeasurementEntity?

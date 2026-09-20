@@ -32,7 +32,7 @@ private sealed class Destination(val route: String, val label: String) {
 private val destinations = listOf(Destination.Measure, Destination.History, Destination.Settings)
 
 @Composable
-fun AppNavHost() {
+fun AppNavHost(startAtSettings: Boolean = false) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -68,7 +68,7 @@ fun AppNavHost() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Destination.Measure.route,
+            startDestination = if (startAtSettings) Destination.Settings.route else Destination.Measure.route,
             modifier = androidx.compose.ui.Modifier.padding(innerPadding),
         ) {
             composable(Destination.Measure.route) { MeasureScreen() }

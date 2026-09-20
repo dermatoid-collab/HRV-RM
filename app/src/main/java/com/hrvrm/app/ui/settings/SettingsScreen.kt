@@ -1,5 +1,8 @@
 package com.hrvrm.app.ui.settings
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -19,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +36,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importBackup(uri)
+    }
 
     Column(
         modifier = Modifier
@@ -115,6 +125,55 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         state.testHrvResult?.let { result ->
             val isSuccess = result.startsWith("Sent")
+            Text(
+                result,
+                fontSize = 13.sp,
+                color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+            )
+        }
+
+        HorizontalDivider()
+
+        Text("Backup", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Your measurement history lives only on this device. Export it before " +
+                "uninstalling or switching builds, and import it back afterwards. The backup " +
+                "has the computed results of each measurement (scores, metrics, RR series) — " +
+                "not raw sensor data. A weekly notification reminds you; it never exports on " +
+                "its own.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(
+                onClick = {
+                    viewModel.exportBackupFile { uri ->
+                        if (uri == null) return@exportBackupFile
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Export HRV-RM backup"))
+                    }
+                },
+                enabled = !state.backupInProgress,
+            ) {
+                if (state.backupInProgress) {
+                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp)
+                }
+                Text("Export backup")
+            }
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("application/json")) },
+                enabled = !state.backupInProgress,
+            ) {
+                Text("Import backup")
+            }
+        }
+
+        state.backupResult?.let { result ->
+            val isSuccess = result.startsWith("Imported")
             Text(
                 result,
                 fontSize = 13.sp,

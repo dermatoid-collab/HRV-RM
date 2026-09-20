@@ -156,10 +156,15 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    dell'andamento giornaliero (`ui/history/HrvTrendChart.kt`) con la fascia della
    "normal range" personale e un marker colorato per stato (nella norma / fuori norma
    / baseline in costruzione) — stessa semantica di colore di `ScoreBadge`. Un giorno
-   con più misurazioni conta solo l'ultima. Zoom e navigazione sono a gesti (pinch/
-   trascinamento, doppio tap per resettare) più scorciatoie rapide 7/30/90 giorni/Tutto;
-   il toggle fra scala ln (default, coerente con `HRVRM`) e score 0–100 compare solo
-   quando lo score è già disponibile.
+   con più misurazioni conta solo l'ultima **nel grafico e su Intervals.icu** (che
+   sovrascrive per data). La baseline dell'HRV Score no: `getPriorMeasurements` prende
+   le ultime N righe per timestamp senza deduplicare per giorno, quindi una seconda
+   misurazione lo stesso giorno pesa come un giorno a sé nelle finestre mobili (7
+   letture per lo smoothing, 60 per la baseline) — misurare più volte in un giorno
+   rende quella giornata più "pesante" nel calcolo statistico. Zoom e navigazione sono
+   a gesti (pinch/trascinamento, doppio tap per resettare) più scorciatoie rapide
+   7/30/90 giorni/Tutto; il toggle fra scala ln (default, coerente con `HRVRM`) e
+   score 0–100 compare solo quando lo score è già disponibile.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`). Scriviamo **solo** il
    campo custom `HRVRM`, col valore in **scala ln stile HRV4Training**
@@ -178,6 +183,23 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    L'Athlete ID viene salvato esattamente come digitato (solo trim, nessun prefisso
    `i` aggiunto automaticamente) — vanno inseriti entrambi così come compaiono sul
    proprio account intervals.icu.
+6. **Backup (`data/MeasurementBackup.kt`)** — lo storico locale vive solo sul database
+   Room del dispositivo: se un aggiornamento non può installarsi sopra la build
+   precedente (cambio di firma, o uno schema che richiede una migrazione distruttiva)
+   l'unica via resta disinstallare e reinstallare, che cancella il database. Nella tab
+   Settings, **"Export backup"** condivide (share sheet, stesso `FileProvider` già usato
+   per l'export dei dati grezzi) un JSON con **tutte** le misurazioni salvate — i dati
+   già elaborati di ciascuna (punteggi, metriche, serie RR pulita), non i campioni
+   grezzi della camera, che non vengono mai salvati su Room. **"Import backup"** apre il
+   selettore di file di sistema e reinserisce le misurazioni del file scelto, saltando
+   quelle il cui timestamp esiste già in locale — reimportare lo stesso file, o
+   importare su un dispositivo non del tutto vuoto, non duplica righe. Le misurazioni
+   importate mantengono lo score/baseline calcolati al momento della misurazione
+   originale (non vengono ricalcolati). Un promemoria settimanale (`backup/
+   BackupReminderWorker.kt`, `WorkManager` periodico) mostra una notifica che apre
+   l'app direttamente sulla tab Settings — **non esporta mai da solo**, serve solo a
+   non dimenticarsene; richiede il permesso di notifica su Android 13+, richiesto
+   automaticamente al primo avvio.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 

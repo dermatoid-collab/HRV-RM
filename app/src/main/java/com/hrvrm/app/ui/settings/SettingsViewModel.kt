@@ -1,11 +1,14 @@
 package com.hrvrm.app.ui.settings
 
 import android.app.Application
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,11 +25,14 @@ data class SettingsUiState(
     val testResult: String? = null,
     val testHrvInProgress: Boolean = false,
     val testHrvResult: String? = null,
+    val backupInProgress: Boolean = false,
+    val backupResult: String? = null,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val settingsStore = (getApplication<Application>() as HrvRmApp).container.settingsStore
+    private val container = (getApplication<Application>() as HrvRmApp).container
+    private val settingsStore = container.settingsStore
     private val intervalsRepository = IntervalsIcuRepository(settingsStore)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -95,6 +101,47 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 is UploadResult.Failure -> result.message
             }
             _uiState.update { it.copy(testHrvInProgress = false, testHrvResult = message) }
+        }
+    }
+
+    /**
+     * Writes the full local measurement history (computed metrics only, no raw samples —
+     * see [com.hrvrm.app.data.MeasurementBackup]) to a cache file and returns a
+     * content:// [Uri] for it, or null if there's nothing to back up yet. Caller (the
+     * Settings screen) turns this into a share intent, same pattern as the Result
+     * screen's raw-data export.
+     */
+    fun exportBackupFile(onResult: (Uri?) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupInProgress = true, backupResult = null) }
+            val json = container.measurementRepository.exportBackupJson()
+            val context = getApplication<Application>()
+            val dir = File(context.cacheDir, "exports/backups").apply { mkdirs() }
+            val file = File(dir, "hrv-rm-backup-${System.currentTimeMillis()}.json")
+            file.writeText(json)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            _uiState.update { it.copy(backupInProgress = false) }
+            onResult(uri)
+        }
+    }
+
+    /** Restores measurements from a backup file picked via the system file/document UI. */
+    fun importBackup(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupInProgress = true, backupResult = null) }
+            val context = getApplication<Application>()
+            val message = try {
+                val text = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    ?: throw IllegalStateException("Couldn't read the selected file.")
+                val result = container.measurementRepository.importBackupJson(text)
+                "Imported ${result.imported} measurements" +
+                    if (result.skippedAlreadyPresent > 0) " (${result.skippedAlreadyPresent} already present, skipped)." else "."
+            } catch (t: Throwable) {
+                "Couldn't import that file: ${t.message}"
+            }
+            _uiState.update { it.copy(backupInProgress = false, backupResult = message) }
         }
     }
 
