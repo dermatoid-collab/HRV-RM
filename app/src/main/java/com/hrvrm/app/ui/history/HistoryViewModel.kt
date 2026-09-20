@@ -23,4 +23,10 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         .observeAll()
         .map(::buildDailyPoints)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Same day-per-latest-measurement rule as [dailyTrend], but for resting heart rate. */
+    val dailyRhrTrend: StateFlow<List<DailyRhrPoint>> = container.measurementRepository
+        .observeAll()
+        .map(::buildDailyRhrPoints)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

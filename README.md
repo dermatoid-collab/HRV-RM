@@ -164,7 +164,14 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    rende quella giornata più "pesante" nel calcolo statistico. Zoom e navigazione sono
    a gesti (pinch/trascinamento, doppio tap per resettare) più scorciatoie rapide
    7/30/90 giorni/Tutto; il toggle fra scala ln (default, coerente con `HRVRM`) e
-   score 0–100 compare solo quando lo score è già disponibile.
+   score 0–100 compare solo quando lo score è già disponibile. Subito sotto, una
+   seconda card (`ui/history/RhrTrendChart.kt`) mostra l'andamento della **frequenza
+   cardiaca a riposo** (media della misurazione, un punto/giorno) — deliberatamente
+   più semplice della card HRV: niente pinch-zoom, niente tap-to-select, niente fascia
+   "normal range" né toggle scala/score, solo le stesse scorciatoie 7D/30D/90D e una
+   linea. Card separata invece di un'altra voce nel toggle HRV perché la RHR è un'altra
+   grandezza vitale, non un'altra vista della stessa HRV — colore blu (`tertiary` nel
+   tema) per non confonderla col corallo/verde acqua già usati per HRV e stato normale.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
    Intervals.icu (`PUT /api/v1/athlete/{id}/wellness/{date}`). Scriviamo **solo** il
    campo custom `HRVRM`, col valore in **scala ln stile HRV4Training**

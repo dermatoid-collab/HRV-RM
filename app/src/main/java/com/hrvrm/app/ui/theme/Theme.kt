@@ -11,6 +11,10 @@ private val Coral = Color(0xFFFF7A90)
 private val OnCoral = Color(0xFF3A0A16)
 private val Teal = Color(0xFF45E0CB)
 private val OnTeal = Color(0xFF0A2320)
+// Distinct from Coral (HRV) and Teal (within-range status) — used for resting heart rate,
+// a different vital sign, not another view of HRV.
+private val SkyBlue = Color(0xFF6FB8E6)
+private val OnSkyBlue = Color(0xFF07293F)
 private val Background = Color(0xFF171112)
 private val Surface = Color(0xFF241B1D)
 private val SurfaceVariant = Color(0xFF2C2224)
@@ -25,6 +29,8 @@ private val DarkColors = darkColorScheme(
     onPrimary = OnCoral,
     secondary = Teal,
     onSecondary = OnTeal,
+    tertiary = SkyBlue,
+    onTertiary = OnSkyBlue,
     background = Background,
     onBackground = OnSurface,
     surface = Surface,

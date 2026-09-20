@@ -38,6 +38,7 @@ import kotlin.math.roundToInt
 fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick: (Long) -> Unit) {
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
     val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
+    val dailyRhrTrend by viewModel.dailyRhrTrend.collectAsStateWithLifecycle()
 
     if (measurements.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -50,6 +51,12 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
         if (dailyTrend.size >= 2) {
             Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp)) {
                 HrvTrendChart(dailyTrend, modifier = Modifier.padding(12.dp))
+            }
+        }
+
+        if (dailyRhrTrend.size >= 2) {
+            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 0.dp)) {
+                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(12.dp))
             }
         }
 
