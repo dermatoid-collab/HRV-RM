@@ -6,6 +6,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
+import com.hrvrm.app.backup.notifyBackupResult
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
 import java.io.File
@@ -125,6 +126,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val file = File(dir, "hrv_rm_backup_$timestamp.json.gz")
             GZIPOutputStream(file.outputStream()).use { it.write(json.toByteArray(Charsets.UTF_8)) }
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            notifyBackupResult(context, "Backup exported", file.name)
             _uiState.update { it.copy(backupInProgress = false) }
             onResult(uri)
         }
@@ -145,8 +147,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     ?: throw IllegalStateException("Couldn't read the selected file.")
                 val text = decodeBackupBytes(bytes)
                 val result = container.measurementRepository.importBackupJson(text)
-                "Imported ${result.imported} measurements" +
+                val summary = "Imported ${result.imported} measurements" +
                     if (result.skippedAlreadyPresent > 0) " (${result.skippedAlreadyPresent} already present, skipped)." else "."
+                notifyBackupResult(context, "Backup imported", summary)
+                summary
             } catch (t: Throwable) {
                 "Couldn't import that file: ${t.message}"
             }

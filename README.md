@@ -207,8 +207,11 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    salvate sul dispositivo. Un promemoria settimanale (`backup/
    BackupReminderWorker.kt`, `WorkManager` periodico) mostra una notifica che apre
    l'app direttamente sulla tab Settings — **non esporta mai da solo**, serve solo a
-   non dimenticarsene; richiede il permesso di notifica su Android 13+, richiesto
-   automaticamente al primo avvio.
+   non dimenticarsene. Una seconda notifica (`backup/BackupNotifications.kt`,
+   stesso canale) conferma quando un export o un import va a buon fine — mai in caso
+   di errore, che resta segnalato solo nel testo a schermo in Settings. Entrambe
+   richiedono il permesso di notifica su Android 13+, richiesto automaticamente al
+   primo avvio.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 
