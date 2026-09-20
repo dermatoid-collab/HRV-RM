@@ -188,14 +188,23 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    precedente (cambio di firma, o uno schema che richiede una migrazione distruttiva)
    l'unica via resta disinstallare e reinstallare, che cancella il database. Nella tab
    Settings, **"Export backup"** condivide (share sheet, stesso `FileProvider` già usato
-   per l'export dei dati grezzi) un JSON con **tutte** le misurazioni salvate — i dati
-   già elaborati di ciascuna (punteggi, metriche, serie RR pulita), non i campioni
-   grezzi della camera, che non vengono mai salvati su Room. **"Import backup"** apre il
-   selettore di file di sistema e reinserisce le misurazioni del file scelto, saltando
-   quelle il cui timestamp esiste già in locale — reimportare lo stesso file, o
-   importare su un dispositivo non del tutto vuoto, non duplica righe. Le misurazioni
-   importate mantengono lo score/baseline calcolati al momento della misurazione
-   originale (non vengono ricalcolati). Un promemoria settimanale (`backup/
+   per l'export dei dati grezzi) un file **`hrv_rm_backup_ddMMyy_HHmm.json.gz`**
+   (compresso in gzip) con **tutte** le misurazioni salvate — i dati già elaborati di
+   ciascuna (punteggi, metriche, serie RR pulita), non i campioni grezzi della camera,
+   che non vengono mai salvati su Room — **più API key e Athlete ID di Intervals.icu**,
+   così un ripristino non richiede di reinserirli a mano. Questo significa che il file
+   esportato contiene una credenziale vera in chiaro (compressa, non cifrata): va
+   trattato come una password, perché chiunque lo intercetti (email, cloud, chat
+   condivisa per errore) ottiene accesso in scrittura al wellness log di quell'atleta —
+   scelta deliberata per comodità di ripristino, non una svista. **"Import backup"** apre
+   il selettore di file di sistema (riconosce sia il nuovo formato gzip sia i vecchi
+   backup non compressi, leggendo i byte magici invece di fidarsi dell'estensione) e
+   reinserisce le misurazioni del file scelto, saltando quelle il cui timestamp esiste
+   già in locale — reimportare lo stesso file, o importare su un dispositivo non del
+   tutto vuoto, non duplica righe. Le misurazioni importate mantengono lo score/baseline
+   calcolati al momento della misurazione originale (non vengono ricalcolati); le
+   credenziali di Intervals.icu, se presenti nel backup, sovrascrivono quelle già
+   salvate sul dispositivo. Un promemoria settimanale (`backup/
    BackupReminderWorker.kt`, `WorkManager` periodico) mostra una notifica che apre
    l'app direttamente sulla tab Settings — **non esporta mai da solo**, serve solo a
    non dimenticarsene; richiede il permesso di notifica su Android 13+, richiesto

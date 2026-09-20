@@ -8,10 +8,19 @@ import kotlinx.serialization.Serializable
  * MeasurementViewModel.exportRawSamplesFile for that separate, algorithm-debugging export).
  * Meant to survive a reinstall: this app's debug signing lets an update install in place,
  * but a version bump that still requires uninstall/reinstall wipes the local database.
+ *
+ * Also carries the Intervals.icu [apiKey] and [athleteId] so a restore doesn't need them
+ * re-typed by hand. This is a real credential leaving the device in plain text inside a
+ * file the share sheet can send anywhere (email, cloud storage, chat) — deliberate
+ * trade-off for restore convenience, not an oversight. [apiKey]/[athleteId]/[autoUpload]
+ * default to null so a backup made before this field existed still decodes.
  */
 @Serializable
 data class MeasurementBackup(
     val exportedAtEpochMs: Long,
+    val apiKey: String? = null,
+    val athleteId: String? = null,
+    val autoUpload: Boolean? = null,
     val measurements: List<MeasurementEntity>,
 )
 

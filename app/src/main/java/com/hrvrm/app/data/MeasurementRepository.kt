@@ -82,6 +82,9 @@ class MeasurementRepository(
     suspend fun exportBackupJson(): String {
         val backup = MeasurementBackup(
             exportedAtEpochMs = System.currentTimeMillis(),
+            apiKey = settingsStore.apiKey.first(),
+            athleteId = settingsStore.athleteId.first(),
+            autoUpload = settingsStore.autoUpload.first(),
             measurements = dao.getAllOnce(),
         )
         return json.encodeToString(backup)
@@ -92,10 +95,18 @@ class MeasurementRepository(
      * [MeasurementEntity.timestampEpochMs] already exists locally (re-importing the same
      * backup, or importing onto a device that isn't fully empty, must not duplicate rows).
      * Imported rows get a fresh, locally-assigned id — the backup's own ids are only
-     * meaningful on the device that produced them.
+     * meaningful on the device that produced them. Also restores the Intervals.icu
+     * credentials and auto-upload preference when the backup carries them, overwriting
+     * whatever is currently saved.
      */
     suspend fun importBackupJson(jsonText: String): BackupImportResult {
         val backup = json.decodeFromString<MeasurementBackup>(jsonText)
+
+        if (backup.apiKey != null && backup.athleteId != null) {
+            settingsStore.setCredentials(backup.apiKey, backup.athleteId)
+        }
+        backup.autoUpload?.let { settingsStore.setAutoUpload(it) }
+
         val existingTimestamps = dao.getAllTimestamps().toSet()
         val toInsert = backup.measurements
             .filter { it.timestampEpochMs !in existingTimestamps }

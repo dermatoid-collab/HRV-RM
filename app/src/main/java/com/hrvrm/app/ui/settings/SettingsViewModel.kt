@@ -9,6 +9,10 @@ import com.hrvrm.app.HrvRmApp
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
 import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,9 +110,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     /**
      * Writes the full local measurement history (computed metrics only, no raw samples —
-     * see [com.hrvrm.app.data.MeasurementBackup]) to a cache file and returns a
-     * content:// [Uri] for it, or null if there's nothing to back up yet. Caller (the
-     * Settings screen) turns this into a share intent, same pattern as the Result
+     * see [com.hrvrm.app.data.MeasurementBackup]) gzip-compressed to a cache file and
+     * returns a content:// [Uri] for it, or null if there's nothing to back up yet. Caller
+     * (the Settings screen) turns this into a share intent, same pattern as the Result
      * screen's raw-data export.
      */
     fun exportBackupFile(onResult: (Uri?) -> Unit) {
@@ -117,24 +121,29 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val json = container.measurementRepository.exportBackupJson()
             val context = getApplication<Application>()
             val dir = File(context.cacheDir, "exports/backups").apply { mkdirs() }
-            val file = File(dir, "hrv-rm-backup-${System.currentTimeMillis()}.json")
-            file.writeText(json)
+            val timestamp = LocalDateTime.now().format(BACKUP_FILENAME_FORMATTER)
+            val file = File(dir, "hrv_rm_backup_$timestamp.json.gz")
+            GZIPOutputStream(file.outputStream()).use { it.write(json.toByteArray(Charsets.UTF_8)) }
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             _uiState.update { it.copy(backupInProgress = false) }
             onResult(uri)
         }
     }
 
-    /** Restores measurements from a backup file picked via the system file/document UI. */
+    /**
+     * Restores measurements (and Intervals.icu credentials, if present) from a backup file
+     * picked via the system file/document UI. Reads gzip-compressed backups (the current
+     * format) and plain-JSON ones (backups made before compression was added) alike, by
+     * sniffing the gzip magic bytes rather than trusting the file extension.
+     */
     fun importBackup(uri: Uri) {
         viewModelScope.launch {
             _uiState.update { it.copy(backupInProgress = true, backupResult = null) }
             val context = getApplication<Application>()
             val message = try {
-                val text = context.contentResolver.openInputStream(uri)
-                    ?.bufferedReader()
-                    ?.use { it.readText() }
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     ?: throw IllegalStateException("Couldn't read the selected file.")
+                val text = decodeBackupBytes(bytes)
                 val result = container.measurementRepository.importBackupJson(text)
                 "Imported ${result.imported} measurements" +
                     if (result.skippedAlreadyPresent > 0) " (${result.skippedAlreadyPresent} already present, skipped)." else "."
@@ -145,7 +154,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun decodeBackupBytes(bytes: ByteArray): String {
+        val isGzip = bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()
+        return if (isGzip) {
+            GZIPInputStream(bytes.inputStream()).use { it.readBytes().toString(Charsets.UTF_8) }
+        } else {
+            bytes.toString(Charsets.UTF_8)
+        }
+    }
+
     private companion object {
         const val TEST_HRV_VALUE = 8.5
+        val BACKUP_FILENAME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("ddMMyy_HHmm")
     }
 }

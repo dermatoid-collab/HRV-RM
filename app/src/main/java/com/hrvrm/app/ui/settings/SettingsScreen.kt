@@ -41,6 +41,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importBackup(uri)
     }
+    // "*/*" rather than a specific mime type: some file providers report .gz backups as
+    // application/octet-stream or omit a type entirely, which would gray the file out in
+    // the picker — importBackup() sniffs the gzip magic bytes itself instead of trusting
+    // whatever type the picker reports.
 
     Column(
         modifier = Modifier
@@ -138,9 +142,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         Text(
             "Your measurement history lives only on this device. Export it before " +
                 "uninstalling or switching builds, and import it back afterwards. The backup " +
-                "has the computed results of each measurement (scores, metrics, RR series) — " +
-                "not raw sensor data. A weekly notification reminds you; it never exports on " +
-                "its own.",
+                "(gzip-compressed) has the computed results of each measurement (scores, " +
+                "metrics, RR series) — not raw sensor data — plus your Intervals.icu API key " +
+                "and Athlete ID, so a restore doesn't need them re-typed. Treat the exported " +
+                "file like a password: whatever app you share it through can read that key. " +
+                "A weekly notification reminds you; it never exports on its own.",
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -150,7 +156,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     viewModel.exportBackupFile { uri ->
                         if (uri == null) return@exportBackupFile
                         val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/json"
+                            type = "application/gzip"
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
@@ -165,7 +171,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 Text("Export backup")
             }
             OutlinedButton(
-                onClick = { importLauncher.launch(arrayOf("application/json")) },
+                onClick = { importLauncher.launch(arrayOf("*/*")) },
                 enabled = !state.backupInProgress,
             ) {
                 Text("Import backup")
