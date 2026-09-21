@@ -232,6 +232,27 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
     IBIs than long ones, so resyncing onto such a run would be adopting the artifact as the
     new normal rather than continuing to (correctly) reject it. Only extend this to
     shortening once a real recording actually shows the same lockout signature there.
+
+    The resync above still pays a fixed cost of `artifact_resync_after_rejects` rejected
+    beats at the *start* of every new deceleration, since that is how many rejections it
+    takes to trigger it -- a recording with several separate RSA cycles pays that toll once
+    per cycle. A beat-by-beat trace of a third real recording (3 deceleration episodes, 3
+    rejects each, 9 of 48 beats) showed each episode's *second* beat overshoots the same
+    stale `level` by even more, yet sits only a normal step away from the *previous raw
+    beat* and keeps lengthening relative to it -- smoothly continuing the same real trend
+    rather than a fresh discontinuity -- so it does not need to wait for the resync to be
+    recognized as genuine. A rejected beat that merely bounces around near the frozen level
+    without continuing to lengthen (a true artifact, or the trend already reversing) does
+    not get this pass: in one real recording a genuine 550ms jump is immediately followed
+    by a beat that is *closer* to `level` again (no longer lengthening relative to the
+    previous raw beat), so it correctly falls through to the untouched multi-reject-then-
+    resync path below. So: a rejected **lengthening** beat is accepted anyway if it is
+    still lengthening relative to the *previous raw beat* (continuing, not reversing) and
+    close to it by the same tolerance that already governs the level comparison -- cutting
+    the per-episode toll from 3 rejects to 1 without weakening detection of an actual
+    isolated jump. Verified on all three real recordings (13/66 -> 8 already verified
+    above; second, 8/51 -> 4/51; third, 9/48 -> 3/48) and the clean synthetic signal
+    (still 0 rejected).
     """
     min_ibi_ms = 60_000.0 / p.max_bpm
     max_ibi_ms = 60_000.0 / p.min_bpm
@@ -241,11 +262,13 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
     level: float | None = None
     accepted_count = 0
     consecutive_lengthen_rejects = 0
+    prev_raw: int | None = None
 
     for i, ibi in enumerate(raw_ibis):
         if ibi < min_ibi_ms or ibi > max_ibi_ms:
             reasons[i] = "OUT_OF_RANGE"
             consecutive_lengthen_rejects = 0
+            prev_raw = ibi
             continue
 
         current_level = level
@@ -254,6 +277,7 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
                      if current_level is not None else float(ibi))
             accepted_count += 1
             consecutive_lengthen_rejects = 0
+            prev_raw = ibi
             continue
 
         step = abs(ibi - current_level)
@@ -262,9 +286,16 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
         step_mad = sorted(abs(x - typical_step) for x in recent)[len(recent) // 2] if recent else 0.0
         floor = current_level * p.artifact_tolerance_floor_fraction
         tolerance = max(floor, typical_step + step_mad * p.artifact_mad_multiplier)
+        successive_step = abs(ibi - prev_raw) if prev_raw is not None else step
+        is_trend_continuation = (
+            prev_raw is not None
+            and ibi > current_level
+            and ibi >= prev_raw
+            and successive_step <= tolerance
+        )
 
-        if step <= tolerance:
-            recent_steps.append(step)
+        if step <= tolerance or is_trend_continuation:
+            recent_steps.append(successive_step if is_trend_continuation and step > tolerance else step)
             level = current_level + (ibi - current_level) * p.artifact_level_smoothing
             accepted_count += 1
             consecutive_lengthen_rejects = 0
@@ -279,6 +310,7 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
                     consecutive_lengthen_rejects = 0
             else:
                 consecutive_lengthen_rejects = 0
+        prev_raw = ibi
 
     return reasons
 

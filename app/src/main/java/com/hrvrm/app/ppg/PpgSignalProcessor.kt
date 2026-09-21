@@ -361,6 +361,27 @@ class PpgSignalProcessor(
      * the new normal instead of continuing to (correctly) reject it. Only extend this to
      * shortening once a real recording actually shows the same lockout signature there.
      *
+     * The resync above still pays a fixed cost of [ARTIFACT_RESYNC_AFTER_REJECTS] rejected
+     * beats at the *start* of every new deceleration, since that's how many rejections it
+     * takes to trigger it — a recording with several separate RSA cycles (several
+     * decelerations) pays that toll once per cycle. A beat-by-beat trace of a third real
+     * recording (3 deceleration episodes, 3 rejects each, 9 of 48 beats) showed each
+     * episode's *second* beat overshoots the same stale `level` by even more, yet sits only
+     * a normal step away from the *previous raw beat* and keeps lengthening relative to it
+     * — smoothly continuing the same real trend rather than a fresh discontinuity — so it
+     * doesn't need to wait for the resync to be recognized as genuine. A rejected beat that
+     * merely bounces around near the frozen level without continuing to lengthen (e.g. a
+     * true artifact, or the trend already reversing) doesn't get this pass: in one real
+     * recording a genuine 550 ms jump is immediately followed by a beat that's *closer* to
+     * `level` again (no longer lengthening relative to the previous raw beat), so it
+     * correctly falls through to the untouched multi-reject-then-resync path below. So: a
+     * rejected **lengthening** beat is accepted anyway if it's still lengthening relative
+     * to the *previous raw beat* (continuing, not reversing) and close to it by the same
+     * tolerance that already governs the level comparison — cutting the per-episode toll
+     * from 3 rejects to 1 without weakening detection of an actual isolated jump. Verified
+     * on all three real recordings (13/66 -> 8 already verified above; second, 8/51 -> 4/51;
+     * third, 9/48 -> 3/48) and the clean synthetic signal (still 0 rejected).
+     *
      * Returns one outcome per entry in [rawIbis] (null = accepted), same order.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
@@ -372,11 +393,13 @@ class PpgSignalProcessor(
         var level: Double? = null
         var acceptedCount = 0
         var consecutiveLengthenRejects = 0
+        var prevRaw: Long? = null
 
         for ((i, ibi) in rawIbis.withIndex()) {
             if (ibi < minIbiMs || ibi > maxIbiMs) {
                 reasons[i] = BeatRejectionReason.OUT_OF_RANGE
                 consecutiveLengthenRejects = 0
+                prevRaw = ibi
                 continue
             }
 
@@ -385,6 +408,7 @@ class PpgSignalProcessor(
                 level = currentLevel?.let { it + (ibi - it) * ARTIFACT_LEVEL_SMOOTHING } ?: ibi.toDouble()
                 acceptedCount++
                 consecutiveLengthenRejects = 0
+                prevRaw = ibi
                 continue
             }
 
@@ -394,8 +418,12 @@ class PpgSignalProcessor(
             val stepMad = if (recent.isEmpty()) 0.0 else recent.map { abs(it - typicalStep) }.sorted()[recent.size / 2]
             val floor = currentLevel * ARTIFACT_TOLERANCE_FLOOR_FRACTION
             val tolerance = maxOf(floor, typicalStep + stepMad * ARTIFACT_MAD_MULTIPLIER)
-            if (step <= tolerance) {
-                recentSteps.add(step)
+            val successiveStep = prevRaw?.let { abs(ibi - it) }?.toDouble() ?: step
+            val isTrendContinuation = prevRaw != null && ibi > currentLevel &&
+                ibi >= prevRaw && successiveStep <= tolerance
+
+            if (step <= tolerance || isTrendContinuation) {
+                recentSteps.add(if (isTrendContinuation && step > tolerance) successiveStep else step)
                 level = currentLevel + (ibi - currentLevel) * ARTIFACT_LEVEL_SMOOTHING
                 acceptedCount++
                 consecutiveLengthenRejects = 0
@@ -413,6 +441,7 @@ class PpgSignalProcessor(
                     consecutiveLengthenRejects = 0
                 }
             }
+            prevRaw = ibi
         }
         return reasons
     }

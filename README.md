@@ -97,7 +97,29 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    scarti consecutivi in accorciamento — nessuna prova reale che serva anche lì, e un
    vero artefatto da movimento del dito produce più facilmente battiti spuri *brevi* che
    lunghi, quindi riallinearsi su una catena di accorciamenti rischierebbe di adottare
-   l'artefatto come nuovo normale invece di continuare (giustamente) a scartarlo.
+   l'artefatto come nuovo normale invece di continuare (giustamente) a scartarlo. Questo
+   riallineamento paga comunque un costo fisso di 3 scarti a ogni **nuovo** rallentamento,
+   perché è proprio quel numero di scarti a farlo scattare — una registrazione con più
+   cicli di aritmia respiratoria separati paga quel costo una volta per ciclo. Una terza
+   registrazione reale, analizzata dopo che l'utente ha notato che l'asimmetria funzionava
+   ma restava un accumulo residuo in espirazione, mostrava esattamente questo: 3 episodi di
+   rallentamento distinti, 3 scarti ciascuno, 9 scarti su 48 battiti in totale. La traccia
+   battito-per-battito rivela che il *secondo* battito di ogni episodio supera il
+   riferimento congelato per un margine ancora maggiore del primo, ma resta a una distanza
+   normale dal **battito grezzo precedente** e continua ad allungarsi rispetto a esso — sta
+   proseguendo con fluidità lo stesso trend reale, non introducendo una nuova discontinuità.
+   Un battito scartato che invece torna verso il riferimento (un vero artefatto isolato, o
+   il trend che si inverte) non riceve questo lasciapassare: in una delle registrazioni un
+   salto genuino di 550ms è seguito da un battito che si riavvicina al riferimento (non più
+   in fase di allungamento rispetto al battito grezzo precedente), quindi cade
+   correttamente nel percorso classico a più scarti seguito da riallineamento. Corretto
+   così: un battito scartato in **allungamento** viene comunque accettato se continua ad
+   allungarsi rispetto al battito grezzo precedente (prosecuzione, non inversione) e ne
+   resta vicino entro la stessa soglia già usata per il confronto col riferimento —
+   riducendo il costo per episodio da 3 scarti a 1 senza indebolire il rilevamento di un
+   salto isolato vero. Verificato su tutte e tre le registrazioni reali (13/66 → 8 già
+   verificato sopra; la seconda, 8/51 → 4/51; la terza, 9/48 → 3/48) e sul segnale sintetico
+   pulito (ancora 0 scarti).
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, Mean RR, pNN50, frequenza media da
    letteratura standard, più due metriche aggiunte confrontando l'app con **Kubios HRV**
    (altra app di riferimento nel settore):
