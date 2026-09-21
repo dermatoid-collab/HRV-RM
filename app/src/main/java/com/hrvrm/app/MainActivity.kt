@@ -2,9 +2,11 @@ package com.hrvrm.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,7 +25,13 @@ import com.hrvrm.app.ui.theme.HrvRmTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The app is always-dark (no light variant, see Theme.kt) but plain enableEdgeToEdge()
+        // picks status/nav bar icon color from the SYSTEM's light/dark setting, not this app's
+        // theme -- on a phone in light mode that means dark (invisible) icons on our dark bars.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         val openBackup = intent?.getBooleanExtra(EXTRA_OPEN_BACKUP, false) ?: false
         setContent {
             HrvRmTheme {
