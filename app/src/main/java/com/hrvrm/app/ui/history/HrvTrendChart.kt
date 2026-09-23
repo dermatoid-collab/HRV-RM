@@ -1,8 +1,11 @@
 package com.hrvrm.app.ui.history
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,8 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -21,12 +24,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -85,8 +87,10 @@ private enum class TrendMetric { LN_SCALE, SCORE }
 
 private const val MIN_WINDOW_DAYS = 4f
 private const val DEFAULT_WINDOW_DAYS = 30
+private const val DEFAULT_RANGE_LABEL = "30D"
 private const val AXIS_WIDTH_DP = 34f
 private val dayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+private val rangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null)
 
 private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float {
     val cutoff = points.last().date.minusDays((days - 1).toLong())
@@ -94,7 +98,12 @@ private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float
     return (if (idx < 0) 0 else idx).toFloat()
 }
 
-/** Daily HRV trend: pinch/drag to zoom and pan, tap a point to read its value, double-tap to reset. */
+/**
+ * Daily HRV trend. One finger drags to select a point (fires immediately on touch and
+ * follows the finger while it's down); two fingers pinch/pan to zoom. Tap a range preset to
+ * jump to it — the active preset stays highlighted until a pinch/pan moves the view away
+ * from an exact preset window.
+ */
 @Composable
 fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
     if (points.size < 2) return // nothing to trend yet — the row below already shows the one reading
@@ -104,6 +113,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
     var viewStart by remember(points.size) { mutableFloatStateOf(startIndexForLastDays(points, DEFAULT_WINDOW_DAYS)) }
     var viewEnd by remember(points.size) { mutableFloatStateOf(maxIndex) }
     var selectedIndex by remember(points.size) { mutableStateOf<Int?>(null) }
+    var selectedRangeLabel by remember(points.size) { mutableStateOf<String?>(DEFAULT_RANGE_LABEL) }
 
     val hasScore = points.any { it.hrvScore != null }
     val effectiveMetric = if (metric == TrendMetric.SCORE && !hasScore) TrendMetric.LN_SCALE else metric
@@ -116,12 +126,13 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
             if (hasScore) {
                 MetricToggle(effectiveMetric, onChange = { metric = it })
             } else {
-                Text("ln scale", style = MaterialTheme.typography.labelSmall)
+                Text("HRV score", style = MaterialTheme.typography.labelSmall)
             }
-            RangePresets { days ->
+            RangePresets(selectedRangeLabel) { label, days ->
                 viewStart = if (days == null) 0f else startIndexForLastDays(points, days)
                 viewEnd = maxIndex
                 selectedIndex = null
+                selectedRangeLabel = label
             }
         }
 
@@ -134,27 +145,20 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
             viewStart = viewStart,
             viewEnd = viewEnd,
             selectedIndex = selectedIndex,
-            onViewChange = { start, end -> viewStart = start; viewEnd = end },
+            onViewChange = { start, end -> viewStart = start; viewEnd = end; selectedRangeLabel = null },
             onSelect = { selectedIndex = it },
-            onReset = {
-                viewStart = startIndexForLastDays(points, DEFAULT_WINDOW_DAYS)
-                viewEnd = maxIndex
-                selectedIndex = null
-            },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2.1f),
         )
-
-        Legend(hasScore)
     }
 }
 
 @Composable
 private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        ToggleChip("ln scale", metric == TrendMetric.LN_SCALE) { onChange(TrendMetric.LN_SCALE) }
-        ToggleChip("score 0-100", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
+        ToggleChip("HRV score", metric == TrendMetric.LN_SCALE) { onChange(TrendMetric.LN_SCALE) }
+        ToggleChip("Score %", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
     }
 }
 
@@ -178,15 +182,24 @@ private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RangePresets(onSelect: (Int?) -> Unit) {
+private fun RangePresets(selected: String?, onSelect: (label: String, days: Int?) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null).forEach { (label, days) ->
-            OutlinedButton(
-                onClick = { onSelect(days) },
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-            ) {
-                Text(label, style = MaterialTheme.typography.labelSmall)
-            }
+        rangeOptions.forEach { (label, days) ->
+            RangePresetButton(label, selected = label == selected) { onSelect(label, days) }
+        }
+    }
+}
+
+@Composable
+private fun RangePresetButton(label: String, selected: Boolean, onClick: () -> Unit) {
+    val contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+    if (selected) {
+        Button(onClick = onClick, contentPadding = contentPadding) {
+            Text(label, style = MaterialTheme.typography.labelSmall)
+        }
+    } else {
+        OutlinedButton(onClick = onClick, contentPadding = contentPadding) {
+            Text(label, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -220,53 +233,6 @@ private fun SelectionReadout(point: DailyHrvPoint, metric: TrendMetric) {
 }
 
 @Composable
-private fun Legend(hasScore: Boolean) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        LegendDot(MaterialTheme.colorScheme.secondary, "Within range")
-        LegendDiamond(MaterialTheme.colorScheme.error, "Outside range")
-        if (!hasScore) LegendRing(MaterialTheme.colorScheme.onSurfaceVariant, "Building baseline")
-    }
-}
-
-@Composable
-private fun LegendDot(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(modifier = Modifier.size(8.dp)) { drawCircle(color = color) }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun LegendDiamond(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(modifier = Modifier.size(8.dp)) {
-            val path = Path().apply {
-                moveTo(size.width / 2f, 0f)
-                lineTo(size.width, size.height / 2f)
-                lineTo(size.width / 2f, size.height)
-                lineTo(0f, size.height / 2f)
-                close()
-            }
-            drawPath(path, color = color)
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun LegendRing(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(modifier = Modifier.size(8.dp)) {
-            drawCircle(color = color, style = Stroke(width = 1.5.dp.toPx()))
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
 private fun TrendCanvas(
     points: List<DailyHrvPoint>,
     metric: TrendMetric,
@@ -275,7 +241,6 @@ private fun TrendCanvas(
     selectedIndex: Int?,
     onViewChange: (Float, Float) -> Unit,
     onSelect: (Int?) -> Unit,
-    onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val textMeasurer = rememberTextMeasurer()
@@ -287,42 +252,67 @@ private fun TrendCanvas(
     val selectionColor = MaterialTheme.colorScheme.primary
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val surfaceColor = MaterialTheme.colorScheme.surface
-    val maxIndex = (points.size - 1).toFloat()
+
+    // Gesture state is read fresh via rememberUpdatedState rather than as plain captured
+    // parameters: the pointerInput coroutine below is keyed on Unit (never restarts for the
+    // lifetime of this composable), so without this indirection it would keep using whatever
+    // viewStart/viewEnd/points happened to be current the first time it launched.
+    val pointsState = rememberUpdatedState(points)
+    val viewStartState = rememberUpdatedState(viewStart)
+    val viewEndState = rememberUpdatedState(viewEnd)
+    val onViewChangeState = rememberUpdatedState(onViewChange)
+    val onSelectState = rememberUpdatedState(onSelect)
 
     Canvas(
         modifier = modifier
-            .pointerInput(points.size) {
-                detectTapGestures(
-                    onTap = { offset ->
-                        val idx = indexAtOffset(offset, size.width.toFloat(), AXIS_WIDTH_DP.dp.toPx(), viewStart, viewEnd)
-                        onSelect(idx.roundToInt().coerceIn(0, points.size - 1))
-                    },
-                    onDoubleTap = { onReset() },
-                )
-            }
-            .pointerInput(points.size) {
-                detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, _ ->
+            .pointerInput(Unit) {
+                awaitEachGesture {
                     val axisPx = AXIS_WIDTH_DP.dp.toPx()
-                    val plotWidth = (size.width - axisPx).coerceAtLeast(1f)
-                    val span = (viewEnd - viewStart).coerceAtLeast(MIN_WINDOW_DAYS)
-                    val focalFraction = ((centroid.x - axisPx) / plotWidth).coerceIn(0f, 1f)
-                    val focalDay = viewStart + focalFraction * span
+                    val down = awaitFirstDown()
+                    val idx = indexAtOffset(down.position, size.width.toFloat(), axisPx, viewStartState.value, viewEndState.value)
+                    onSelectState.value(idx.roundToInt().coerceIn(0, pointsState.value.size - 1))
 
-                    val newSpan = (span / zoom).coerceIn(MIN_WINDOW_DAYS, maxIndex.coerceAtLeast(MIN_WINDOW_DAYS))
-                    var newStart = focalDay - focalFraction * newSpan
-                    var newEnd = newStart + newSpan
+                    do {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.size >= 2) {
+                            val zoom = event.calculateZoom()
+                            val pan = event.calculatePan()
+                            if (zoom != 1f || pan != Offset.Zero) {
+                                val centroid = event.calculateCentroid()
+                                val currentPoints = pointsState.value
+                                val maxIdx = (currentPoints.size - 1).toFloat()
+                                val currentStart = viewStartState.value
+                                val currentEnd = viewEndState.value
+                                val plotWidth = (size.width - axisPx).coerceAtLeast(1f)
+                                val span = (currentEnd - currentStart).coerceAtLeast(MIN_WINDOW_DAYS)
+                                val focalFraction = ((centroid.x - axisPx) / plotWidth).coerceIn(0f, 1f)
+                                val focalDay = currentStart + focalFraction * span
 
-                    val dayPerPx = newSpan / plotWidth
-                    val shift = pan.x * dayPerPx
-                    newStart -= shift
-                    newEnd -= shift
+                                val newSpan = (span / zoom).coerceIn(MIN_WINDOW_DAYS, maxIdx.coerceAtLeast(MIN_WINDOW_DAYS))
+                                var newStart = focalDay - focalFraction * newSpan
+                                var newEnd = newStart + newSpan
 
-                    if (newStart < 0f) { newEnd -= newStart; newStart = 0f }
-                    if (newEnd > maxIndex) { newStart -= (newEnd - maxIndex); newEnd = maxIndex }
-                    newStart = newStart.coerceAtLeast(0f)
-                    newEnd = newEnd.coerceAtMost(maxIndex)
+                                val dayPerPx = newSpan / plotWidth
+                                newStart -= pan.x * dayPerPx
+                                newEnd -= pan.x * dayPerPx
 
-                    onViewChange(newStart, newEnd)
+                                if (newStart < 0f) { newEnd -= newStart; newStart = 0f }
+                                if (newEnd > maxIdx) { newStart -= (newEnd - maxIdx); newEnd = maxIdx }
+                                newStart = newStart.coerceAtLeast(0f)
+                                newEnd = newEnd.coerceAtMost(maxIdx)
+
+                                onViewChangeState.value(newStart, newEnd)
+                            }
+                            event.changes.forEach { it.consume() }
+                        } else if (pressed.size == 1) {
+                            val change = pressed[0]
+                            val currentPoints = pointsState.value
+                            val newIdx = indexAtOffset(change.position, size.width.toFloat(), axisPx, viewStartState.value, viewEndState.value)
+                            onSelectState.value(newIdx.roundToInt().coerceIn(0, currentPoints.size - 1))
+                            change.consume()
+                        }
+                    } while (event.changes.any { it.pressed })
                 }
             },
     ) {
@@ -330,7 +320,7 @@ private fun TrendCanvas(
         val plotLeft = axisPx
         val plotRight = size.width
         val plotTop = 8.dp.toPx()
-        val plotBottom = size.height - 4.dp.toPx()
+        val plotBottom = size.height - 14.dp.toPx() // leaves room for the x-axis date labels below
         val span = (viewEnd - viewStart).coerceAtLeast(MIN_WINDOW_DAYS)
 
         fun xAt(index: Int): Float = plotLeft + (index - viewStart) / span * (plotRight - plotLeft)
@@ -454,6 +444,12 @@ private fun TrendCanvas(
             val x = xAt(idx)
             drawLine(color = selectionColor, start = Offset(x, plotTop), end = Offset(x, plotBottom), strokeWidth = 1.dp.toPx())
         }
+
+        // x-axis start/end date labels
+        val startLabel = textMeasurer.measure(points[i0].date.format(dayFormatter), style = TextStyle(fontSize = 9.sp, color = axisTextColor))
+        drawText(startLabel, topLeft = Offset(plotLeft, plotBottom + 4.dp.toPx()))
+        val endLabel = textMeasurer.measure(points[i1].date.format(dayFormatter), style = TextStyle(fontSize = 9.sp, color = axisTextColor))
+        drawText(endLabel, topLeft = Offset(plotRight - endLabel.size.width, plotBottom + 4.dp.toPx()))
     }
 }
 

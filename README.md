@@ -198,15 +198,29 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    le ultime N righe per timestamp senza deduplicare per giorno, quindi una seconda
    misurazione lo stesso giorno pesa come un giorno a sé nelle finestre mobili (7
    letture per lo smoothing, 60 per la baseline) — misurare più volte in un giorno
-   rende quella giornata più "pesante" nel calcolo statistico. Zoom e navigazione sono
-   a gesti (pinch/trascinamento, doppio tap per resettare) più scorciatoie rapide
-   7/30/90 giorni/Tutto; il toggle fra scala ln (default, coerente con `HRVRM`) e
-   score 0–100 compare solo quando lo score è già disponibile. Subito sotto, una
-   seconda card (`ui/history/RhrTrendChart.kt`) mostra l'andamento della **frequenza
-   cardiaca a riposo** (media della misurazione, un punto/giorno) — deliberatamente
-   più semplice della card HRV: niente pinch-zoom, niente tap-to-select, niente fascia
-   "normal range" né toggle scala/score, solo le stesse scorciatoie 7D/30D/90D e una
-   linea. Card separata invece di un'altra voce nel toggle HRV perché la RHR è un'altra
+   rende quella giornata più "pesante" nel calcolo statistico. Un dito trascinato sul
+   grafico seleziona un punto seguendo il dito in tempo reale (scatta già al primo
+   tocco, non serve sollevare il dito), due dita fanno pinch/pan per zoomare — i due
+   gesti sono gestiti da un unico `pointerInput` manuale (non i detector standard di
+   Compose) proprio per evitare che competessero fra loro sullo stesso tocco singolo.
+   Il doppio tap per resettare lo zoom è stato tolto: il pulsante "All" fa la stessa
+   cosa in modo esplicito. Le scorciatoie 7D/30D/90D/Tutto restano evidenziate una
+   volta scelte, finché un pinch/pan non sposta la vista da una finestra esatta.
+   L'etichetta dei due giorni (inizio/fine finestra visibile) compare sotto l'asse x,
+   come già nel grafico RHR sotto. Il toggle fra scala ln (etichettato **"HRV
+   score"**, default, coerente con `HRVRM`) e punteggio 0–100 (etichettato **"Score
+   %"**) compare solo quando lo score è già disponibile; la legenda testuale dei
+   colori dei pallini è stata tolta (i pallini restano colorati per stato, solo senza
+   didascalia sotto). Subito sotto, una seconda card (`ui/history/RhrTrendChart.kt`)
+   mostra l'andamento della **frequenza cardiaca a riposo** (media della misurazione,
+   un punto/giorno) — deliberatamente più semplice della card HRV: niente pinch-zoom
+   (RHR non ha bisogno di zoomare così tanto quanto l'HRV), stesso tocco/trascina per
+   selezionare un giorno però, stesse scorciatoie 7D/30D/90D con evidenziazione
+   persistente, e una fascia di **baseline personale** (media ± la stessa ampiezza
+   "smallest worthwhile change" di `HrvScoreCalculator`, calcolata sugli ultimi giorni
+   precedenti a ciascun punto) — puramente un calcolo a schermo, non salvata né usata
+   altrove, perché la RHR non ha un proprio punteggio/baseline lato server come l'HRV.
+   Card separata invece di un'altra voce nel toggle HRV perché la RHR è un'altra
    grandezza vitale, non un'altra vista della stessa HRV — colore blu (`tertiary` nel
    tema) per non confonderla col corallo/verde acqua già usati per HRV e stato normale.
 5. **Upload (`network/`)** — client Retrofit con Basic Auth verso l'API REST di
