@@ -35,6 +35,7 @@ data class SettingsUiState(
     val backupInProgress: Boolean = false,
     val backupResult: String? = null,
     val backupFolderName: String? = null,
+    val keepRawData: Boolean = false,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -60,6 +61,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(backupFolderName = name) }
             }
         }
+        viewModelScope.launch {
+            settingsStore.keepRawData.collect { enabled ->
+                _uiState.update { it.copy(keepRawData = enabled) }
+            }
+        }
+    }
+
+    fun onKeepRawDataChanged(value: Boolean) {
+        viewModelScope.launch { settingsStore.setKeepRawData(value) }
     }
 
     private fun folderDisplayName(uri: Uri): String =

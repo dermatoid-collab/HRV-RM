@@ -242,6 +242,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
             metrics = metrics,
             cleanIbiMs = result.cleanIbiMs,
             rejectedBeatCount = result.rejectedBeatCount,
+            rawSamples = snapshot,
         )
 
         _uiState.value = MeasureUiState.Result(saved, uploadInProgress = false)

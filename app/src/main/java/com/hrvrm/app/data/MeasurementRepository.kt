@@ -2,10 +2,12 @@ package com.hrvrm.app.data
 
 import android.net.Uri
 import com.hrvrm.app.backup.FolderSync
+import com.hrvrm.app.backup.RawSampleStorage
 import com.hrvrm.app.hrv.HrvMetrics
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
+import com.hrvrm.app.ppg.PpgSample
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.decodeFromString
@@ -18,6 +20,7 @@ class MeasurementRepository(
     private val intervalsRepository: IntervalsIcuRepository,
     private val settingsStore: SettingsStore,
     private val folderSync: FolderSync,
+    private val rawSampleStorage: RawSampleStorage,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -31,6 +34,7 @@ class MeasurementRepository(
         metrics: HrvMetrics,
         cleanIbiMs: List<Long>,
         rejectedBeatCount: Int,
+        rawSamples: List<PpgSample>,
     ): MeasurementEntity {
         val priorRmssd = dao.getPriorMeasurements(timestampEpochMs, HrvScoreCalculator.BASELINE_WINDOW_SIZE)
             .map { it.rmssdMs }
@@ -67,6 +71,10 @@ class MeasurementRepository(
 
         settingsStore.backupFolderUri.first()?.let { folderUriString ->
             folderSync.writeMeasurementFile(Uri.parse(folderUriString), saved)
+        }
+
+        if (settingsStore.keepRawData.first()) {
+            rawSampleStorage.save(saved.id, rawSamples)
         }
 
         return saved

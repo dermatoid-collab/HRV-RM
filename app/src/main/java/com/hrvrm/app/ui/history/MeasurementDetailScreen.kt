@@ -1,5 +1,6 @@
 package com.hrvrm.app.ui.history
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,15 +9,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,17 +52,21 @@ private val detailDateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:m
 @Composable
 fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
     val context = LocalContext.current
-    val repository = remember { (context.applicationContext as HrvRmApp).container.measurementRepository }
+    val container = remember { (context.applicationContext as HrvRmApp).container }
+    val repository = remember { container.measurementRepository }
+    val rawSampleStorage = remember { container.rawSampleStorage }
     val scope = rememberCoroutineScope()
 
     var measurement by remember(measurementId) { mutableStateOf<MeasurementEntity?>(null) }
     var loading by remember(measurementId) { mutableStateOf(true) }
     var uploadInProgress by remember(measurementId) { mutableStateOf(false) }
+    var hasRawData by remember(measurementId) { mutableStateOf(false) }
 
     LaunchedEffect(measurementId) {
         loading = true
         measurement = repository.getById(measurementId)
         loading = false
+        hasRawData = rawSampleStorage.hasStoredSamples(measurementId)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -126,6 +134,29 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
                             }
                         },
                     )
+
+                    if (hasRawData) {
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    val uri = rawSampleStorage.exportSharedFile(current.id)
+                                    if (uri != null) {
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "application/json"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "Export raw HRV data"))
+                                    }
+                                }
+                            },
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Export raw data")
+                        }
+                    }
                 }
             }
         }

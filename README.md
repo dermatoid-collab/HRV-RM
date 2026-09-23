@@ -277,6 +277,19 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    best-effort (try/catch silenzioso): una cartella cancellata, smontata, o con permesso
    revocato non deve mai far fallire il salvataggio di una misurazione, solo lasciare
    quel file non sincronizzato per il prossimo tentativo.
+8. **Export dei dati grezzi per misurazioni passate (`backup/RawSampleStorage.kt`)** — il
+   pulsante "Export raw data" del Result screen esisteva solo per la misurazione appena
+   fatta (i campioni PPG grezzi vivevano solo in memoria nel ViewModel, mai salvati). Ora,
+   se attivato in Settings (**"Keep raw sensor data"**, spento di default), ogni
+   misurazione salva anche i propri campioni grezzi in storage privato dell'app,
+   compressi in gzip (~11 KB per misurazione da 60s, misurato su registrazioni reali,
+   contro ~79 KB non compresso) — l'unico tipo di dato che i due backup sopra escludono
+   deliberatamente, quindi qui è una scelta esplicita dell'utente, non un default. Quando
+   presenti, lo stesso pulsante **"Export raw data"** compare anche nella schermata di
+   dettaglio di History per quella misurazione, decomprime al volo e produce lo stesso
+   formato JSON in chiaro del export "al volo" originale (stesso `FileProvider`, stesso
+   share sheet) — così i file restano intercambiabili con `dev-tools/ppg_processor.py`
+   indipendentemente da quale dei due percorsi li ha generati.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 

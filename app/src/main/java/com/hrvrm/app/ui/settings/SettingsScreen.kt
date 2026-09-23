@@ -190,6 +190,23 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             )
         }
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Keep raw sensor data", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Store each measurement's raw camera samples on this device (gzip-" +
+                        "compressed, ~11 KB per measurement) so \"Export raw data\" works " +
+                        "from History too, not just right after measuring. Off by default — " +
+                        "not included in either backup above.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = state.keepRawData, onCheckedChange = viewModel::onKeepRawDataChanged)
+        }
+
         HorizontalDivider()
 
         Text("Backup folder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)

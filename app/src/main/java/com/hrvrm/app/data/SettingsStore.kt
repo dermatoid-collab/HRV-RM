@@ -18,6 +18,7 @@ class SettingsStore(private val context: Context) {
         val ATHLETE_ID = stringPreferencesKey("intervals_athlete_id")
         val AUTO_UPLOAD = booleanPreferencesKey("auto_upload")
         val BACKUP_FOLDER_URI = stringPreferencesKey("backup_folder_uri")
+        val KEEP_RAW_DATA = booleanPreferencesKey("keep_raw_data")
     }
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[Keys.API_KEY] }
@@ -26,6 +27,9 @@ class SettingsStore(private val context: Context) {
 
     /** Content-tree URI of the user-chosen folder [com.hrvrm.app.backup.FolderSync] mirrors to, or null if unset. */
     val backupFolderUri: Flow<String?> = context.dataStore.data.map { it[Keys.BACKUP_FOLDER_URI] }
+
+    /** Off by default — see [com.hrvrm.app.backup.RawSampleStorage] for why this isn't free. */
+    val keepRawData: Flow<Boolean> = context.dataStore.data.map { it[Keys.KEEP_RAW_DATA] ?: false }
 
     suspend fun setCredentials(apiKey: String, athleteId: String) {
         // Stored exactly as entered (just trimmed) — no "i" prefix guessing. ERG-RM,
@@ -45,5 +49,9 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { prefs ->
             if (uri == null) prefs.remove(Keys.BACKUP_FOLDER_URI) else prefs[Keys.BACKUP_FOLDER_URI] = uri
         }
+    }
+
+    suspend fun setKeepRawData(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.KEEP_RAW_DATA] = enabled }
     }
 }
