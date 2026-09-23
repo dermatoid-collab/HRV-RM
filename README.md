@@ -119,7 +119,22 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    riducendo il costo per episodio da 3 scarti a 1 senza indebolire il rilevamento di un
    salto isolato vero. Verificato su tutte e tre le registrazioni reali (13/66 → 8 già
    verificato sopra; la seconda, 8/51 → 4/51; la terza, 9/48 → 3/48) e sul segnale sintetico
-   pulito (ancora 0 scarti).
+   pulito (ancora 0 scarti). Una quarta registrazione reale (frequenza cardiaca a riposo
+   molto bassa, media 45 bpm — coerente con un atleta di endurance molto allenato) ha
+   mostrato una variante dello stesso problema, questa volta a partire da un battito
+   OUT_OF_RANGE vero e proprio: un intervallo è finito appena oltre il limite massimo
+   plausibile (una valle di aritmia respiratoria sinusale molto profonda, del tutto
+   plausibile per questa persona, non necessariamente un errore di rilevamento), e siccome
+   il riferimento non si muove mai su un battito escluso, è rimasto congelato attraverso
+   quel vuoto — così i due battiti successivi, che si stavano solo assestando sul nuovo
+   ritmo genuinamente più lento, sono sembrati anch'essi salti bruschi ed sono stati
+   scartati. Corretto lasciando che anche un battito OUT_OF_RANGE per allungamento eccessivo
+   sposti il riferimento verso di sé (non per accorciamento eccessivo: un intervallo troppo
+   corto è quasi sempre un doppio conteggio del rilevatore, non un vero picco di frequenza,
+   quindi non c'è motivo di fidarsene come riferimento) — verificato di nuovo su tutte e
+   quattro le registrazioni reali più il sintetico prima di portarlo in Kotlin: nessun
+   cambiamento sulle prime tre e sul sintetico, la quarta scende da 4 a 2 scarti su 44
+   battiti.
 3. **Metriche HRV (`hrv/`)** — RMSSD, SDNN, Mean RR, pNN50, frequenza media da
    letteratura standard, più due metriche aggiunte confrontando l'app con **Kubios HRV**
    (altra app di riferimento nel settore):

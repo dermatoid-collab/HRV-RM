@@ -253,6 +253,16 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
     isolated jump. Verified on all three real recordings (13/66 -> 8 already verified
     above; second, 8/51 -> 4/51; third, 9/48 -> 3/48) and the clean synthetic signal
     (still 0 rejected).
+
+    A fourth real recording (very fit, low resting HR: mean 45 bpm) showed one more
+    variant of the same underlying issue, this time starting from an actual OUT_OF_RANGE
+    beat rather than an IRREGULAR one: a single interval landed just past `max_ibi_ms` (a
+    plausible deep sinus-arrhythmia trough for this person, not necessarily a bad
+    detection), and because `level` never moves on an excluded beat, it stayed frozen
+    through that gap -- so the *next two* beats, which were simply settling onto the new,
+    genuinely slower rhythm, each looked like a fresh large jump and were rejected too.
+    Letting a too-long OOR beat also nudge `level` toward it (below) removed both of those
+    without changing anything on the first three recordings or the synthetic signal.
     """
     min_ibi_ms = 60_000.0 / p.max_bpm
     max_ibi_ms = 60_000.0 / p.min_bpm
@@ -268,6 +278,11 @@ def reject_artifacts(raw_ibis: list[int], p: Params) -> list[str | None]:
         if ibi < min_ibi_ms or ibi > max_ibi_ms:
             reasons[i] = "OUT_OF_RANGE"
             consecutive_lengthen_rejects = 0
+            # A too-long OOR beat still nudges the level toward it, same as an accepted beat
+            # would -- not applied to a too-short one (far more likely a detection glitch,
+            # e.g. a double-counted beat, than a real HR spike worth trusting as reference).
+            if level is not None and ibi > max_ibi_ms:
+                level = level + (ibi - level) * p.artifact_level_smoothing
             prev_raw = ibi
             continue
 

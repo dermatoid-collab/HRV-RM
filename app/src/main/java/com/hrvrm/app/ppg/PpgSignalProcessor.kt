@@ -382,6 +382,18 @@ class PpgSignalProcessor(
      * on all three real recordings (13/66 -> 8 already verified above; second, 8/51 -> 4/51;
      * third, 9/48 -> 3/48) and the clean synthetic signal (still 0 rejected).
      *
+     * A fourth real recording (very fit, low resting HR: mean 45 bpm) showed one more
+     * variant of the same underlying issue, this time starting from an actual
+     * [BeatRejectionReason.OUT_OF_RANGE] beat rather than an IRREGULAR one: a single
+     * interval landed just past `maxIbiMs` (a plausible deep sinus-arrhythmia trough for
+     * this person, not necessarily a bad detection), and because `level` never moves on an
+     * excluded beat, it stayed frozen through that gap — so the *next two* beats, which
+     * were simply settling onto the new, genuinely slower rhythm, each looked like a fresh
+     * large jump and were rejected too. Letting a too-long OOR beat also nudge `level`
+     * toward it (see the OOR branch below) removed both of those without changing anything
+     * on the first three recordings or the synthetic signal — confirmed by re-running all
+     * four plus the synthetic through the Python port before this Kotlin change.
+     *
      * Returns one outcome per entry in [rawIbis] (null = accepted), same order.
      */
     private fun rejectArtifacts(rawIbis: List<Long>): List<BeatRejectionReason?> {
@@ -399,6 +411,16 @@ class PpgSignalProcessor(
             if (ibi < minIbiMs || ibi > maxIbiMs) {
                 reasons[i] = BeatRejectionReason.OUT_OF_RANGE
                 consecutiveLengthenRejects = 0
+                // A too-long OOR beat (implausibly slow HR) still nudges the level toward it,
+                // same as an accepted beat would -- see the doc comment above for why: without
+                // this, a genuine deep RSA trough that happens to land just past maxIbiMs
+                // freezes the level through the excluded beat, and the next 1-2 real beats
+                // settling onto the new (genuinely slower) rhythm look like fresh jumps from a
+                // now-stale reference instead of the trend they actually are. Not applied to a
+                // too-short OOR beat: an implausibly fast single interval is far more likely a
+                // detection glitch (double-counted beat) than a real HR spike, so there's no
+                // similar reason to trust it enough to move the reference.
+                level?.let { if (ibi > maxIbiMs) level = it + (ibi - it) * ARTIFACT_LEVEL_SMOOTHING }
                 prevRaw = ibi
                 continue
             }
