@@ -1,5 +1,7 @@
 package com.hrvrm.app.data
 
+import android.net.Uri
+import com.hrvrm.app.backup.FolderSync
 import com.hrvrm.app.hrv.HrvMetrics
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.network.IntervalsIcuRepository
@@ -15,6 +17,7 @@ class MeasurementRepository(
     private val dao: MeasurementDao,
     private val intervalsRepository: IntervalsIcuRepository,
     private val settingsStore: SettingsStore,
+    private val folderSync: FolderSync,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -61,6 +64,11 @@ class MeasurementRepository(
         if (settingsStore.autoUpload.first()) {
             saved = uploadMeasurement(saved)
         }
+
+        settingsStore.backupFolderUri.first()?.let { folderUriString ->
+            folderSync.writeMeasurementFile(Uri.parse(folderUriString), saved)
+        }
+
         return saved
     }
 

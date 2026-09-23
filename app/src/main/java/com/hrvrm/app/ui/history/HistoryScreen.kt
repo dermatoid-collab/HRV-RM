@@ -9,14 +9,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,15 +43,18 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
     val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
     val dailyRhrTrend by viewModel.dailyRhrTrend.collectAsStateWithLifecycle()
-
-    if (measurements.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No measurements yet. Go to \"Measure\" to get started.")
-        }
-        return
-    }
+    val folderSyncState by viewModel.folderSyncState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
+        FolderSyncHeader(folderSyncState, onSyncClick = viewModel::syncFolder)
+
+        if (measurements.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No measurements yet. Go to \"Measure\" to get started.")
+            }
+            return@Column
+        }
+
         if (dailyTrend.size >= 2) {
             Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp)) {
                 HrvTrendChart(dailyTrend, modifier = Modifier.padding(12.dp))
@@ -68,6 +75,46 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
             items(measurements, key = { it.id }) { measurement ->
                 HistoryRow(measurement, onClick = { onMeasurementClick(measurement.id) })
             }
+        }
+    }
+}
+
+/**
+ * Sync-with-backup-folder status + trigger, always visible (even with zero local
+ * measurements) since restoring the whole history after a reinstall — the main reason this
+ * button exists — starts from exactly that empty state. See [HistoryViewModel.syncFolder].
+ */
+@Composable
+private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 0.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("History", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onSyncClick, enabled = !state.inProgress) {
+                if (state.inProgress) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        Icons.Filled.Sync,
+                        contentDescription = "Sync with backup folder",
+                        tint = if (state.folderConfigured) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+            }
+        }
+        state.result?.let { result ->
+            Text(
+                result,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

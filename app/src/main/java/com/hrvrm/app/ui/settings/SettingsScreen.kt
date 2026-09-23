@@ -41,6 +41,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importBackup(uri)
     }
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.pickBackupFolder(uri)
+    }
     // "*/*" rather than a specific mime type: some file providers report .gz backups as
     // application/octet-stream or omit a type entirely, which would gray the file out in
     // the picker — importBackup() sniffs the gzip magic bytes itself instead of trusting
@@ -185,6 +188,37 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 fontSize = 13.sp,
                 color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
             )
+        }
+
+        HorizontalDivider()
+
+        Text("Backup folder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Pick a folder — including one backed by Google Drive, Dropbox, or another " +
+                "cloud app, if it's installed — and every measurement is written there as " +
+                "its own small file the moment it's saved, plus one settings file with your " +
+                "Intervals.icu credentials. Use History's sync icon to catch up on anything " +
+                "missed, or to pull your whole history back after reinstalling the app.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        if (state.backupFolderName != null) {
+            Text(
+                "Folder: ${state.backupFolderName}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { folderLauncher.launch(null) }) {
+                Text(if (state.backupFolderName == null) "Choose folder" else "Change folder")
+            }
+            if (state.backupFolderName != null) {
+                OutlinedButton(onClick = viewModel::forgetBackupFolder) {
+                    Text("Forget folder")
+                }
+            }
         }
     }
 }

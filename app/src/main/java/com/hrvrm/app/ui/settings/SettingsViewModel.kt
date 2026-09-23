@@ -1,8 +1,10 @@
 package com.hrvrm.app.ui.settings
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
@@ -32,6 +34,7 @@ data class SettingsUiState(
     val testHrvResult: String? = null,
     val backupInProgress: Boolean = false,
     val backupResult: String? = null,
+    val backupFolderName: String? = null,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -51,6 +54,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(apiKey = key, athleteId = id, autoUpload = auto) }
             }
         }
+        viewModelScope.launch {
+            settingsStore.backupFolderUri.collect { uriString ->
+                val name = uriString?.let { folderDisplayName(Uri.parse(it)) }
+                _uiState.update { it.copy(backupFolderName = name) }
+            }
+        }
+    }
+
+    private fun folderDisplayName(uri: Uri): String =
+        DocumentFile.fromTreeUri(getApplication(), uri)?.name ?: uri.lastPathSegment ?: uri.toString()
+
+    /** Called after the user picks a folder via [androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree]. */
+    fun pickBackupFolder(uri: Uri) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+            settingsStore.setBackupFolderUri(uri.toString())
+            container.folderSync.writeSettingsFile(uri)
+        }
+    }
+
+    fun forgetBackupFolder() {
+        viewModelScope.launch { settingsStore.setBackupFolderUri(null) }
     }
 
     fun onApiKeyChanged(value: String) {

@@ -93,6 +93,10 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
+    // Folder backup (see backup/FolderSync.kt): read/write files in a user-chosen
+    // Storage-Access-Framework tree (e.g. a Google Drive folder) via DocumentFile.
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     // Weekly backup reminder notification (see backup/BackupReminderWorker.kt).
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 

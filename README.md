@@ -256,6 +256,27 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    di errore, che resta segnalato solo nel testo a schermo in Settings. Entrambe
    richiedono il permesso di notifica su Android 13+, richiesto automaticamente al
    primo avvio.
+7. **Cartella di backup (`backup/FolderSync.kt`)** — alternativa/complemento al file di
+   backup unico sopra: in Settings, **"Choose folder"** apre il selettore di cartelle di
+   sistema (Storage Access Framework, `ACTION_OPEN_DOCUMENT_TREE`) — può essere una
+   cartella locale o una gestita da qualunque app installata che si comporti da document
+   provider, Google Drive e Dropbox inclusi, senza bisogno di API/OAuth dedicati.  Da quel
+   momento, ogni misurazione salvata scrive automaticamente il proprio file
+   **`hrv_rm_measurement_ddMMyy_HHmmss.json`** nella cartella (dati sintetici, stesso
+   principio del backup unico — un file per misurazione invece di uno unico), e un file
+   **`hrv_rm_settings.json`** con le credenziali Intervals.icu viene tenuto aggiornato
+   (sovrascritto, non accumulato). La tab **History** ha un'icona di sync in alto: un tap
+   esegue una riconciliazione bidirezionale completa (`FolderSync.syncAll`) — scrive nella
+   cartella qualunque misurazione locale che ancora non ce l'ha (es. fatte quando la
+   cartella non era raggiungibile) e, soprattutto, **importa** nel database locale
+   qualunque file di misurazione presente nella cartella che manca in locale, stesso
+   dedup per timestamp usato da "Import backup". Questo è il caso d'uso principale:
+   dopo aver disinstallato e reinstallato l'app (database locale azzerato), un tap
+   sull'icona di sync ripopola l'intero storico dalla cartella — l'icona resta visibile
+   anche a lista vuota apposta per questo. Ogni scrittura/lettura sulla cartella è
+   best-effort (try/catch silenzioso): una cartella cancellata, smontata, o con permesso
+   revocato non deve mai far fallire il salvataggio di una misurazione, solo lasciare
+   quel file non sincronizzato per il prossimo tentativo.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 
