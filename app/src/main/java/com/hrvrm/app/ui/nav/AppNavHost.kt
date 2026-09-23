@@ -46,10 +46,14 @@ fun AppNavHost(startAtSettings: Boolean = false) {
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
+                            // No saveState/restoreState: "measurementDetail/{id}" is a flat
+                            // destination alongside History, not nested inside it, so that
+                            // pattern (meant for per-tab back stacks) would restore straight
+                            // into the last-viewed measurement instead of the History list.
+                            // Tapping a tab should always land on that tab's own root screen.
                             navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                popUpTo(navController.graph.findStartDestination().id)
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         },
                         icon = {
