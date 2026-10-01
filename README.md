@@ -290,7 +290,17 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    anche a lista vuota apposta per questo. Ogni scrittura/lettura sulla cartella è
    best-effort (try/catch silenzioso): una cartella cancellata, smontata, o con permesso
    revocato non deve mai far fallire il salvataggio di una misurazione, solo lasciare
-   quel file non sincronizzato per il prossimo tentativo.
+   quel file non sincronizzato per il prossimo tentativo. Le credenziali, a differenza
+   delle misurazioni, viaggiano in una sola direzione tramite `syncAll`: vengono scritte
+   nella cartella, mai lette da essa — un bug trovato discutendo proprio dello scenario
+   "disinstalla e reinstalla": al primo re-selezione della stessa cartella su un
+   telefono appena reinstallato (credenziali locali vuote), `writeSettingsFile` avrebbe
+   sovrascritto silenziosamente il buon file di credenziali nella cartella con quello
+   vuoto, *prima* che l'utente avesse la possibilità di recuperare qualunque cosa.
+   Corretto facendo sì che `writeSettingsFile` controlli prima se il dispositivo ha già
+   delle credenziali proprie: se non le ha, le importa dal file della cartella (se
+   presente) prima di scrivere — quindi ri-selezionare la cartella dopo un reinstall
+   ripristina da solo API key e Athlete ID, ancora prima di toccare "sync" in History.
 8. **Export dei dati grezzi per misurazioni passate (`backup/RawSampleStorage.kt`)** — il
    pulsante "Export raw data" del Result screen esisteva solo per la misurazione appena
    fatta (i campioni PPG grezzi vivevano solo in memoria nel ViewModel, mai salvati). Ora,

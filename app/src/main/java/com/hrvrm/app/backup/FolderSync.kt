@@ -44,7 +44,8 @@ data class FolderSyncResult(val exported: Int, val imported: Int)
  *    whole history onto a fresh install: it imports every measurement file in the folder
  *    that isn't in the local (now-empty) database yet, the same dedup-by-timestamp rule as
  *    "Import backup" uses, just spread across many small per-measurement files instead of
- *    one big one.
+ *    one big one. The credentials themselves are restored earlier, the moment the folder is
+ *    re-picked in Settings — see [writeSettingsFile].
  *
  * Every write is best-effort: a folder that's since been deleted, unmounted, or had its
  * permission revoked must not crash a measurement save or a manual sync — it just leaves
@@ -67,9 +68,26 @@ class FolderSync(
         }
     }
 
+    /**
+     * Keeps the folder's settings file current -- but first, if *this device* doesn't have
+     * credentials saved yet, pulls them from the folder's existing settings file instead of
+     * writing over them. Without this, re-picking the same folder right after a reinstall
+     * (a fresh, empty [SettingsStore]) would immediately blank out the folder's good
+     * credentials with this device's, before the user ever gets a chance to restore
+     * anything -- this is the only path that restores credentials at all, since
+     * [syncAll] only ever imports *measurements* back from the folder.
+     */
     suspend fun writeSettingsFile(folderUri: Uri) = runCatching {
         withContext(Dispatchers.IO) {
             val folder = DocumentFile.fromTreeUri(context, folderUri) ?: return@withContext
+            if (settingsStore.apiKey.first() == null) {
+                readSettingsFile(folder)?.let { remote ->
+                    if (remote.apiKey != null && remote.athleteId != null) {
+                        settingsStore.setCredentials(remote.apiKey, remote.athleteId)
+                    }
+                    remote.autoUpload?.let { settingsStore.setAutoUpload(it) }
+                }
+            }
             val settings = FolderSettingsFile(
                 apiKey = settingsStore.apiKey.first(),
                 athleteId = settingsStore.athleteId.first(),
@@ -82,6 +100,15 @@ class FolderSync(
                 it.write(json.encodeToString(settings).toByteArray(Charsets.UTF_8))
             }
         }
+    }
+
+    private fun readSettingsFile(folder: DocumentFile): FolderSettingsFile? {
+        val file = folder.findFile(SETTINGS_FILE_NAME) ?: return null
+        return runCatching {
+            val text = context.contentResolver.openInputStream(file.uri)?.use { it.readBytes() }
+                ?.toString(Charsets.UTF_8) ?: return null
+            json.decodeFromString<FolderSettingsFile>(text)
+        }.getOrNull()
     }
 
     /**
