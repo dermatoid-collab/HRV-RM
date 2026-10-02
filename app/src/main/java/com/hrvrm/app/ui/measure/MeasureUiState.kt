@@ -19,6 +19,13 @@ sealed interface MeasureUiState {
         val liveBpm: Double?,
         val waveform: List<Double>,
         val beatLog: List<BeatLogEntry> = emptyList(),
+        /**
+         * 1-5, from the artifact-rejection rate in the same recent rolling window the live
+         * bpm/beat log use — null while that window still has too few beats to be
+         * meaningful (shows "Detecting…"), same idea as [liveBpm] being null early on.
+         * See [MeasurementViewModel.signalQualityBars].
+         */
+        val signalQualityBars: Int? = null,
     ) : MeasureUiState
     data object Processing : MeasureUiState
     data class Result(val measurement: MeasurementEntity, val uploadInProgress: Boolean) : MeasureUiState

@@ -314,6 +314,18 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    formato JSON in chiaro del export "al volo" originale (stesso `FileProvider`, stesso
    share sheet) — così i file restano intercambiabili con `dev-tools/ppg_processor.py`
    indipendentemente da quale dei due percorsi li ha generati.
+9. **Indicatore "Signal quality" live (`ui/measure/MeasurementViewModel.signalQualityBars`)**
+   — durante la misurazione, 5 barre crescenti + etichetta (Good/Fair/Poor) sopra il log dei
+   battiti. Non è una nuova analisi del segnale: riusa il tasso di scarto battiti
+   (`rejectedBeatCount`/battiti totali) già calcolato ad ogni tick sulla stessa finestra
+   mobile di 9s (`WAVEFORM_WINDOW_MS`) che alimenta già il bpm live e il log battiti — stesso
+   numero che finisce, a fine misurazione, in "Valid beats (N rejected)" sul Result screen,
+   solo letto in tempo reale invece che a consuntivo. Resta `null` ("Detecting…", stesso
+   fallback già usato per il bpm live quando la finestra è vuota) finché non ci sono almeno
+   3 battiti nella finestra (`MIN_BEATS_FOR_SIGNAL_QUALITY`) — sotto quella soglia il tasso
+   oscilla troppo per essere un'indicazione utile. Con una FC di riposo tipica, la finestra
+   di 9s ne contiene quasi sempre 7-12, quindi in pratica "Detecting…" dura solo i primissimi
+   secondi di ogni misurazione, non l'intera durata.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 

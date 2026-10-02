@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
@@ -74,6 +75,7 @@ import kotlin.math.roundToInt
 
 private val BEAT_LOG_ROW_HEIGHT = 24.dp
 private const val BEAT_LOG_VISIBLE_ROWS = 3
+private const val SIGNAL_QUALITY_MAX_BARS = 5
 
 @Composable
 fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
@@ -198,13 +200,64 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
     Spacer(Modifier.height(32.dp))
     MeasuringRing(state.remainingSec, state.totalSec, state.liveBpm)
 
-    Spacer(Modifier.height(32.dp))
-    OutlinedButton(onClick = onCancel) {
-        Text("Cancel")
-    }
+    Spacer(Modifier.height(20.dp))
+    SignalQualityIndicator(state.signalQualityBars)
 
     Spacer(Modifier.height(20.dp))
     LiveBeatLog(state.beatLog, modifier = Modifier.fillMaxWidth())
+
+    Spacer(Modifier.height(20.dp))
+    OutlinedButton(onClick = onCancel) {
+        Text("Cancel")
+    }
+}
+
+/**
+ * "Signal quality" readout for the Measuring screen: 5 ascending bars plus a plain-language
+ * label, bucketed from the artifact-rejection rate — see
+ * [MeasurementViewModel.signalQualityBars] for how [bars] is derived. Null (not yet enough
+ * beats in the rolling window to judge) shows "Detecting…" with all bars dim, the same
+ * fallback language already used for the live bpm reading.
+ */
+@Composable
+private fun SignalQualityIndicator(bars: Int?) {
+    val label = when (bars) {
+        null -> "Detecting…"
+        5, 4 -> "Good"
+        3 -> "Fair"
+        else -> "Poor"
+    }
+    val labelColor = when (bars) {
+        null -> MaterialTheme.colorScheme.onSurfaceVariant
+        5, 4 -> MaterialTheme.colorScheme.secondary
+        3 -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.error
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Signal quality",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            for (i in 1..SIGNAL_QUALITY_MAX_BARS) {
+                val filled = bars != null && i <= bars
+                Box(
+                    modifier = Modifier
+                        .width(6.dp)
+                        .height(8.dp + (i * 4).dp)
+                        .background(
+                            color = if (filled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(2.dp),
+                        ),
+                ) {}
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = labelColor)
+    }
 }
 
 /**

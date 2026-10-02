@@ -155,6 +155,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
                         // look "unstable" even when the underlying pulse is clean.
                         waveform = waveformSource?.takeLast(WAVEFORM_POINTS) ?: emptyList(),
                         beatLog = beatLog.toList(),
+                        signalQualityBars = result?.let { signalQualityBars(it) },
                     )
 
                     if (elapsedMs >= totalMs) break
@@ -200,6 +201,27 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         if (ibis.isEmpty()) return null
         val meanIbi = ibis.takeLast(5).average()
         return 60_000.0 / meanIbi
+    }
+
+    /**
+     * Buckets the artifact-rejection rate of the same rolling window [estimateBpm] reads
+     * into a 1-5 bar count for the Measuring screen's "Signal quality" indicator — reuses
+     * an already-computed, already-verified number rather than adding a separate signal
+     * analysis. Null (shown as "Detecting…") until the window has at least
+     * [MIN_BEATS_FOR_SIGNAL_QUALITY] beats, since a rate over 0-2 beats swings wildly and
+     * isn't meaningful yet — same reasoning as [estimateBpm] returning null on an empty window.
+     */
+    private fun signalQualityBars(result: PpgProcessingResult): Int? {
+        val totalBeats = result.cleanIbiMs.size + result.rejectedBeatCount
+        if (totalBeats < MIN_BEATS_FOR_SIGNAL_QUALITY) return null
+        val rejectionRate = result.rejectedBeatCount.toDouble() / totalBeats
+        return when {
+            rejectionRate <= 0.05 -> 5
+            rejectionRate <= 0.15 -> 4
+            rejectionRate <= 0.30 -> 3
+            rejectionRate <= 0.45 -> 2
+            else -> 1
+        }
     }
 
     /**
@@ -264,5 +286,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         const val EDGE_TRIM_SAMPLES = 10
         /** Generous cap for a ~65s measurement (~1 beat/sec) — bounds memory, not visible cadence. */
         const val MAX_BEAT_LOG_ENTRIES = 200
+        /** Below this many beats in the rolling window, a rejection rate is too noisy to show. */
+        const val MIN_BEATS_FOR_SIGNAL_QUALITY = 3
     }
 }
