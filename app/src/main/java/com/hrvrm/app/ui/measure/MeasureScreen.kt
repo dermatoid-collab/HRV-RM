@@ -17,10 +17,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -215,7 +217,7 @@ private fun TodayDashboardContent(
             HorizontalDivider()
             Spacer(Modifier.height(16.dp))
 
-            Row(verticalAlignment = Alignment.Top) {
+            Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("HRV score", style = MaterialTheme.typography.labelLarge)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -237,7 +239,7 @@ private fun TodayDashboardContent(
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
                         .width(1.dp)
-                        .height(64.dp)
+                        .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.outlineVariant),
                 )
                 Column(horizontalAlignment = Alignment.End) {
@@ -338,7 +340,7 @@ private fun MeasureButton(onStart: () -> Unit) {
                 Icons.Filled.Favorite,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(38.dp),
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -362,7 +364,12 @@ private fun MeasureButton(onStart: () -> Unit) {
  */
 @Composable
 private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double) {
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    // surfaceVariant is too close to the card's own background to read as a track at all
+    // (confirmed on-device) -- outlineVariant has the contrast the divider lines already
+    // rely on elsewhere on this card. holeColor is kept separate for the thumb's punched-out
+    // center, which should still blend with the card rather than stand out as grey.
+    val trackColor = MaterialTheme.colorScheme.outlineVariant
+    val holeColor = MaterialTheme.colorScheme.surfaceVariant
     val bandColor = MaterialTheme.colorScheme.secondary
     val dotColor = MaterialTheme.colorScheme.primary
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -398,7 +405,7 @@ private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double
             )
             val dotX = xAt(value)
             drawCircle(color = dotColor, radius = 9.dp.toPx(), center = Offset(dotX, centerY))
-            drawCircle(color = trackColor, radius = 4.dp.toPx(), center = Offset(dotX, centerY))
+            drawCircle(color = holeColor, radius = 4.dp.toPx(), center = Offset(dotX, centerY))
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -501,8 +508,12 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
     LiveBeatLog(state.beatLog, modifier = Modifier.fillMaxWidth())
 
     Spacer(Modifier.height(6.dp))
-    OutlinedButton(onClick = onCancel) {
-        Text("Cancel")
+    OutlinedButton(
+        onClick = onCancel,
+        // +20% over the default button size (24dp/8dp padding, labelLarge text).
+        contentPadding = PaddingValues(horizontal = 29.dp, vertical = 10.dp),
+    ) {
+        Text("Cancel", fontSize = MaterialTheme.typography.labelLarge.fontSize * 1.2f)
     }
 }
 
@@ -681,11 +692,11 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(
-        modifier = Modifier.size(192.dp),
+        modifier = Modifier.size(230.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidthPx = 13.dp.toPx()
+            val strokeWidthPx = 16.dp.toPx()
             val diameter = size.minDimension - strokeWidthPx
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
