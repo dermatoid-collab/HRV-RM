@@ -69,16 +69,6 @@ fun PpgWaveform(samples: List<Double>, modifier: Modifier = Modifier) {
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
 
-        // Poor-man's glow: the same path redrawn a few times with an increasing stroke width
-        // and decreasing alpha, behind the sharp line. Avoids graphicsLayer/RenderEffect
-        // (API 31+) so it still works down to this app's minSdk 26.
-        for ((widthMultiplier, alpha) in GLOW_LAYERS) {
-            drawPath(
-                path = path,
-                color = lineColor.copy(alpha = alpha),
-                style = Stroke(width = STROKE_WIDTH_PX * widthMultiplier, cap = StrokeCap.Round, join = StrokeJoin.Round),
-            )
-        }
         drawPath(
             path = path,
             color = lineColor,
@@ -86,5 +76,3 @@ fun PpgWaveform(samples: List<Double>, modifier: Modifier = Modifier) {
         )
     }
 }
-
-private val GLOW_LAYERS = listOf(5f to 0.10f, 3f to 0.18f, 1.8f to 0.28f)

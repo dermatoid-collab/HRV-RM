@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -221,14 +222,15 @@ private fun SelectionReadout(point: DailyHrvPoint, metric: TrendMetric) {
         TrendMetric.SCORE -> point.hrvScore?.toString() ?: "–"
     }
     Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     ) {
-        Text(point.date.format(dayFormatter), style = MaterialTheme.typography.labelSmall)
-        Text("·", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(valueText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-        Text("·", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor)
+        Text(point.date.format(dayFormatter), style = MaterialTheme.typography.bodyMedium)
+        Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(valueText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(statusLabel, style = MaterialTheme.typography.bodyMedium, color = statusColor, fontWeight = FontWeight.SemiBold)
     }
 }
 

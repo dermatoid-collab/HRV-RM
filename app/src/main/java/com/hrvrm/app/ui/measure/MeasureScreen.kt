@@ -126,9 +126,9 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel(), onMeasurementCl
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(PaddingValues(24.dp)),
+            .padding(PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 24.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top,
     ) {
         when (val state = uiState) {
             is MeasureUiState.Idle, is MeasureUiState.NeedsPermission ->
@@ -423,12 +423,22 @@ private fun StabilizingContent(state: MeasureUiState.Stabilizing) {
 
 @Composable
 private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Unit) {
-    Text("Measuring…", style = MaterialTheme.typography.headlineSmall)
-    Text(
-        "Keep still and breathe naturally",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    // Cancel sits up here, next to the title, instead of at the end of the scrollable
+    // content below (waveform + ring + signal quality + beat log is tall enough that a
+    // trailing Cancel button could sit off-screen until you scroll down to it).
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+        Column {
+            Text("Measuring…", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                "Keep still and breathe naturally",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        OutlinedButton(onClick = onCancel) {
+            Text("Cancel")
+        }
+    }
     Spacer(Modifier.height(16.dp))
 
     PpgWaveform(
@@ -446,11 +456,6 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
 
     Spacer(Modifier.height(20.dp))
     LiveBeatLog(state.beatLog, modifier = Modifier.fillMaxWidth())
-
-    Spacer(Modifier.height(20.dp))
-    OutlinedButton(onClick = onCancel) {
-        Text("Cancel")
-    }
 }
 
 /**

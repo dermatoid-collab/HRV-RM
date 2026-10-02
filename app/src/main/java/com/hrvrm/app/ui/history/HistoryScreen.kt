@@ -86,7 +86,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
  */
 @Composable
 private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 0.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp, 2.dp, 16.dp, 0.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

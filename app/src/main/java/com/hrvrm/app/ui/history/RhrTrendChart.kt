@@ -122,15 +122,16 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
 
         val shown = selectedIndex?.let { points.getOrNull(it) } ?: points.last()
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         ) {
-            Text(shown.date.format(rhrDayFormatter), style = MaterialTheme.typography.labelSmall)
-            Text("·", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(shown.date.format(rhrDayFormatter), style = MaterialTheme.typography.bodyMedium)
+            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 "${shown.meanHrBpm.roundToInt()} bpm",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
             )
         }
 
