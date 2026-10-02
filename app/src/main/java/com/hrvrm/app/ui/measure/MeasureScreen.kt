@@ -423,9 +423,9 @@ private fun StabilizingContent(state: MeasureUiState.Stabilizing) {
 
 @Composable
 private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Unit) {
-    // Cancel sits up here, next to the title, instead of at the end of the scrollable
-    // content below (waveform + ring + signal quality + beat log is tall enough that a
-    // trailing Cancel button could sit off-screen until you scroll down to it).
+    // Everything here is sized to fit on one screen without scrolling -- the ring, the
+    // waveform's aspect ratio, and the gaps between elements are all deliberately more
+    // compact than a "could scroll if it had to" layout would use.
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
         Column {
             Text("Measuring…", style = MaterialTheme.typography.headlineSmall)
@@ -439,22 +439,22 @@ private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Un
             Text("Cancel")
         }
     }
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(8.dp))
 
     PpgWaveform(
         samples = state.waveform,
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(2f),
+            .aspectRatio(2.8f),
     )
 
-    Spacer(Modifier.height(32.dp))
+    Spacer(Modifier.height(12.dp))
     MeasuringRing(state.remainingSec, state.totalSec, state.liveBpm)
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(8.dp))
     SignalQualityIndicator(state.signalQualityBars)
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(8.dp))
     LiveBeatLog(state.beatLog, modifier = Modifier.fillMaxWidth())
 }
 
@@ -633,11 +633,11 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(
-        modifier = Modifier.size(220.dp),
+        modifier = Modifier.size(176.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidthPx = 14.dp.toPx()
+            val strokeWidthPx = 12.dp.toPx()
             val diameter = size.minDimension - strokeWidthPx
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
@@ -663,22 +663,22 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(16.dp))
             Spacer(Modifier.height(2.dp))
             Text(
                 liveBpm?.let { "${it.roundToInt()}" } ?: "--",
-                fontSize = 56.sp,
+                fontSize = 44.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 if (liveBpm != null) "bpm" else "detecting pulse…",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 "${remainingSec}s left",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
         }
