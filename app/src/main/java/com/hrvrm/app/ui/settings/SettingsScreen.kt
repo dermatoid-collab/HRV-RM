@@ -56,10 +56,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Intervals.icu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Find your API key and Athlete ID in your intervals.icu account settings, " +
-                "under \"Developer Settings\".",
+            "Intervals.icu",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Find your API key and Athlete ID under intervals.icu → Settings → Developer Settings.",
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -141,15 +144,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         HorizontalDivider()
 
-        Text("Backup", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Your measurement history lives only on this device. Export it before " +
-                "uninstalling or switching builds, and import it back afterwards. The backup " +
-                "(gzip-compressed) has the computed results of each measurement (scores, " +
-                "metrics, RR series) — not raw sensor data — plus your Intervals.icu API key " +
-                "and Athlete ID, so a restore doesn't need them re-typed. Treat the exported " +
-                "file like a password: whatever app you share it through can read that key. " +
-                "A weekly notification reminds you; it never exports on its own.",
+            "Backup",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Your history lives only on this device. Export before uninstalling, import to " +
+                "restore — includes your Intervals.icu credentials, so treat the file like a " +
+                "password. A weekly reminder nudges you; nothing exports automatically.",
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -197,10 +200,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Keep raw sensor data", fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Store each measurement's raw camera samples on this device (gzip-" +
-                        "compressed, ~11 KB per measurement) so \"Export raw data\" works " +
-                        "from History too, not just right after measuring. Off by default — " +
-                        "not included in either backup above.",
+                    "Keeps raw camera samples (~11 KB each) so \"Export raw data\" also works " +
+                        "later from History. Off by default; not included in the backup above.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -209,13 +210,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         HorizontalDivider()
 
-        Text("Backup folder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Pick a folder — including one backed by Google Drive, Dropbox, or another " +
-                "cloud app, if it's installed — and every measurement is written there as " +
-                "its own small file the moment it's saved, plus one settings file with your " +
-                "Intervals.icu credentials. Use History's sync icon to catch up on anything " +
-                "missed, or to pull your whole history back after reinstalling the app.",
+            "Backup folder",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Pick a folder (Google Drive, Dropbox, etc.) and each measurement saves there " +
+                "automatically, along with your credentials. Use History's sync icon to catch " +
+                "up or restore after reinstalling.",
             style = MaterialTheme.typography.bodyMedium,
         )
 

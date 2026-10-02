@@ -56,21 +56,21 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
         }
 
         if (dailyTrend.size >= 2) {
-            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp)) {
-                HrvTrendChart(dailyTrend, modifier = Modifier.padding(12.dp))
+            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+                HrvTrendChart(dailyTrend, modifier = Modifier.padding(10.dp))
             }
         }
 
         if (dailyRhrTrend.size >= 2) {
-            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 0.dp)) {
-                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(12.dp))
+            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(10.dp))
             }
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             items(measurements, key = { it.id }) { measurement ->
                 HistoryRow(measurement, onClick = { onMeasurementClick(measurement.id) })
@@ -92,7 +92,11 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("History", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "History",
+                fontSize = MaterialTheme.typography.headlineSmall.fontSize * 0.85f,
+                fontWeight = FontWeight.Bold,
+            )
             IconButton(onClick = onSyncClick, enabled = !state.inProgress) {
                 if (state.inProgress) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -125,7 +129,7 @@ private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Lo
 private fun HistoryRow(measurement: MeasurementEntity, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {

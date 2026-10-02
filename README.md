@@ -348,11 +348,12 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
     più vicina a 7 giorni di calendario fa, in percentuale — sotto il 2% di differenza
     conta come "Stable", altrimenti "Rising" o "Falling". È un calcolo puramente di
     visualizzazione, non influenza lo score né la baseline.
-12. **Restyling della schermata di misurazione (`ui/measure/MeasureScreen.kt`,
-    `PpgWaveform.kt`)** — aggiunto un sottotitolo sotto "Measuring…", un'icona cuore sopra
-    il bpm nell'anello di progresso, e un effetto glow sull'onda PPG: la stessa linea
-    ridisegnata 2-3 volte con tratto più largo e alpha decrescente dietro quella nitida —
-    niente `graphicsLayer`/`RenderEffect` (richiederebbe API 31+, questo minSdk è 26).
+12. **Restyling della schermata di misurazione (`ui/measure/MeasureScreen.kt`)** —
+    sottotitolo sotto "Measuring…" e icona cuore sopra il bpm nell'anello di progresso.
+    Un effetto glow sull'onda PPG (stessa linea ridisegnata più volte con tratto
+    crescente e alpha decrescente dietro quella nitida, senza `graphicsLayer`/
+    `RenderEffect` per restare compatibili con minSdk 26) era stato provato e poi
+    rimosso su richiesta: l'onda resta un tratto singolo nitido.
 13. **Eliminazione di una misurazione (`data/MeasurementRepository.deleteMeasurement`)** —
     icona cestino nel dettaglio di History, con conferma esplicita (azione distruttiva).
     Cancella non solo la riga sul database locale ma anche tutto ciò che potrebbe farla
@@ -360,6 +361,15 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
     file nella cartella di backup se una è configurata (`FolderSync.deleteMeasurementFile`)
     — senza quest'ultimo, il prossimo tap su "sync" in History la reimporterebbe dalla
     cartella, vanificando la cancellazione.
+14. **Rifiniture di layout su dashboard, misurazione, history e settings** — titolo
+    app diventato "HRV-RM"; la card "Trend (7D)" è ora cliccabile e porta a History;
+    la data di "Last measurement" ora segna "Today"/"Yesterday" solo quando è
+    davvero oggi/ieri (prima la scritta "Today" era un prefisso fisso del formatter,
+    quindi compariva anche su misurazioni di giorni precedenti); stessa correzione
+    dell'inset della status bar già applicata alla barra di navigazione principale
+    (`windowInsetsPadding(WindowInsets.statusBars)`) estesa anche alla toolbar di
+    `MeasurementDetailScreen`, dove mancava perché è una schermata pushata a parte
+    e non una delle 3 tab del pager.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 

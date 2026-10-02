@@ -94,7 +94,12 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
             modifier = Modifier.padding(innerPadding),
         ) { page ->
             when (destinations[page]) {
-                Destination.Measure -> MeasureScreen(onMeasurementClick = onMeasurementClick)
+                Destination.Measure -> MeasureScreen(
+                    onMeasurementClick = onMeasurementClick,
+                    onTrendClick = {
+                        scope.launch { pagerState.animateScrollToPage(destinations.indexOf(Destination.History)) }
+                    },
+                )
                 Destination.History -> HistoryScreen(onMeasurementClick = onMeasurementClick)
                 Destination.Settings -> SettingsScreen()
             }
@@ -117,8 +122,8 @@ private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "HRV",
-            style = MaterialTheme.typography.headlineSmall,
+            "HRV-RM",
+            fontSize = MaterialTheme.typography.headlineSmall.fontSize * 0.8f,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
