@@ -7,19 +7,26 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
+import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvMetricsCalculator
 import com.hrvrm.app.ppg.PpgCameraSource
 import com.hrvrm.app.ppg.PpgProcessingResult
 import com.hrvrm.app.ppg.PpgSample
 import com.hrvrm.app.ppg.PpgSignalProcessor
+import com.hrvrm.app.ui.history.DailyHrvPoint
+import com.hrvrm.app.ui.history.buildDailyPoints
 import java.io.File
 import java.util.Collections
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -31,6 +38,36 @@ private data class RawSampleExport(
     val exportedAtEpochMs: Long,
     val samples: List<PpgSample>,
 )
+
+enum class TrendDirection { RISING, FALLING, STABLE }
+
+/** How today's smoothed HRV reading (ln scale) compares to ~7 days ago — see [computeTrend7d]. */
+data class Trend7d(val deltaAltiniScale: Double, val deltaPercent: Double, val direction: TrendDirection)
+
+/** Backs the "Today" dashboard shown when idle — see [MeasurementViewModel.dashboard]. */
+data class TodayDashboard(val latest: MeasurementEntity?, val trend: Trend7d?)
+
+/**
+ * Compares today's smoothed reading ([DailyHrvPoint.altiniScaleValue] is already the
+ * 7-reading rolling average, see HrvScoreCalculator) to the closest reading on or before 7
+ * calendar days ago. Null if there's nothing that far back yet. +-2% counts as "Stable" --
+ * day-to-day noise in an already-smoothed value shouldn't read as a real change.
+ */
+private fun computeTrend7d(daily: List<DailyHrvPoint>): Trend7d? {
+    if (daily.size < 2) return null
+    val current = daily.last()
+    val targetDate = current.date.minusDays(7)
+    val past = daily.lastOrNull { it.date <= targetDate } ?: return null
+    if (past.altiniScaleValue == 0.0) return null
+    val delta = current.altiniScaleValue - past.altiniScaleValue
+    val deltaPercent = delta / past.altiniScaleValue * 100.0
+    val direction = when {
+        abs(deltaPercent) < 2.0 -> TrendDirection.STABLE
+        deltaPercent > 0 -> TrendDirection.RISING
+        else -> TrendDirection.FALLING
+    }
+    return Trend7d(delta, deltaPercent, direction)
+}
 
 class MeasurementViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -57,6 +94,12 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _uiState = MutableStateFlow<MeasureUiState>(MeasureUiState.Idle)
     val uiState: StateFlow<MeasureUiState> = _uiState.asStateFlow()
+
+    /** Latest measurement + 7-day trend for the "Today" dashboard shown when idle. */
+    val dashboard: StateFlow<TodayDashboard> = container.measurementRepository
+        .observeAll()
+        .map { measurements -> TodayDashboard(measurements.firstOrNull(), computeTrend7d(buildDailyPoints(measurements))) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayDashboard(null, null))
 
     init {
         cameraSource.onSample = { sample -> if (collecting) samples.add(sample) }

@@ -80,6 +80,21 @@ class MeasurementRepository(
         return saved
     }
 
+    /**
+     * Deletes a measurement everywhere it could otherwise reappear from: the local row, its
+     * raw-sample file if one was kept, and its file in the backup folder if one is
+     * configured -- skipping that last part would mean the next "sync" tap re-imports the
+     * very measurement just deleted, since the folder would still have its file.
+     */
+    suspend fun deleteMeasurement(id: Long) {
+        val measurement = dao.getById(id) ?: return
+        dao.deleteById(id)
+        rawSampleStorage.delete(id)
+        settingsStore.backupFolderUri.first()?.let { folderUriString ->
+            folderSync.deleteMeasurementFile(Uri.parse(folderUriString), measurement.timestampEpochMs)
+        }
+    }
+
     suspend fun uploadMeasurement(measurement: MeasurementEntity): MeasurementEntity {
         val result = intervalsRepository.uploadHrv(
             measurementEpochMs = measurement.timestampEpochMs,

@@ -1,92 +1,142 @@
 package com.hrvrm.app.ui.nav
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.hrvrm.app.ui.history.HistoryScreen
 import com.hrvrm.app.ui.history.MeasurementDetailScreen
 import com.hrvrm.app.ui.measure.MeasureScreen
 import com.hrvrm.app.ui.settings.SettingsScreen
+import kotlinx.coroutines.launch
 
-private sealed class Destination(val route: String, val label: String) {
-    data object Measure : Destination("measure", "Measure")
-    data object History : Destination("history", "History")
-    data object Settings : Destination("settings", "Settings")
+private sealed class Destination(val label: String) {
+    data object Measure : Destination("Measure")
+    data object History : Destination("History")
+    data object Settings : Destination("Settings")
 }
 
 private val destinations = listOf(Destination.Measure, Destination.History, Destination.Settings)
 
+/**
+ * Top-level navigation: "main" hosts the 3 tabs as swipeable pager pages (plus the same
+ * icon row tapped directly), "measurementDetail/{id}" is a normal pushed screen reached by
+ * tapping a History row or the dashboard's "Last measurement" card -- it's deliberately
+ * NOT a pager page, since there's no sensible "swipe into a specific measurement" gesture.
+ */
 @Composable
 fun AppNavHost(startAtSettings: Boolean = false) {
     val navController = rememberNavController()
 
-    Scaffold(
-        bottomBar = {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
-
-            NavigationBar {
-                destinations.forEach { destination ->
-                    val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            // No saveState/restoreState: "measurementDetail/{id}" is a flat
-                            // destination alongside History, not nested inside it, so that
-                            // pattern (meant for per-tab back stacks) would restore straight
-                            // into the last-viewed measurement instead of the History list.
-                            // Tapping a tab should always land on that tab's own root screen.
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id)
-                                launchSingleTop = true
-                            }
-                        },
-                        icon = {
-                            val icon = when (destination) {
-                                Destination.Measure -> Icons.Filled.Favorite
-                                Destination.History -> Icons.Filled.History
-                                Destination.Settings -> Icons.Filled.Settings
-                            }
-                            Icon(icon, contentDescription = destination.label)
-                        },
-                        label = { Text(destination.label) },
-                    )
-                }
+    NavHost(navController = navController, startDestination = "main") {
+        composable("main") {
+            MainTabsScreen(
+                startAtSettings = startAtSettings,
+                onMeasurementClick = { id -> navController.navigate("measurementDetail/$id") },
+            )
+        }
+        composable("measurementDetail/{id}") { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id")?.toLongOrNull()
+            if (id != null) {
+                MeasurementDetailScreen(measurementId = id, onBack = { navController.popBackStack() })
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) -> Unit) {
+    val pagerState = rememberPagerState(
+        initialPage = if (startAtSettings) destinations.indexOf(Destination.Settings) else 0,
+        pageCount = { destinations.size },
+    )
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        topBar = {
+            TopTabBar(
+                selectedIndex = pagerState.currentPage,
+                onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+            )
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = if (startAtSettings) Destination.Settings.route else Destination.Measure.route,
-            modifier = androidx.compose.ui.Modifier.padding(innerPadding),
-        ) {
-            composable(Destination.Measure.route) { MeasureScreen() }
-            composable(Destination.History.route) {
-                HistoryScreen(
-                    onMeasurementClick = { id -> navController.navigate("measurementDetail/$id") },
-                )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.padding(innerPadding),
+        ) { page ->
+            when (destinations[page]) {
+                Destination.Measure -> MeasureScreen(onMeasurementClick = onMeasurementClick)
+                Destination.History -> HistoryScreen(onMeasurementClick = onMeasurementClick)
+                Destination.Settings -> SettingsScreen()
             }
-            composable(Destination.Settings.route) { SettingsScreen() }
-            composable("measurementDetail/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id")?.toLongOrNull()
-                if (id != null) {
-                    MeasurementDetailScreen(measurementId = id, onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+private val TAB_UNDERLINE_WIDTH = 28.dp
+
+@Composable
+private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "HRV",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f),
+        )
+        destinations.forEachIndexed { index, destination ->
+            val selected = index == selectedIndex
+            val icon = when (destination) {
+                Destination.Measure -> Icons.Filled.Favorite
+                Destination.History -> Icons.Filled.History
+                Destination.Settings -> Icons.Filled.Settings
+            }
+            Box(contentAlignment = Alignment.TopCenter) {
+                IconButton(onClick = { onSelect(index) }) {
+                    Icon(
+                        icon,
+                        contentDescription = destination.label,
+                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+                Box(
+                    modifier = Modifier
+                        .padding(top = 42.dp)
+                        .width(if (selected) TAB_UNDERLINE_WIDTH else 0.dp)
+                        .height(2.dp)
+                        .background(MaterialTheme.colorScheme.primary),
+                )
             }
         }
     }

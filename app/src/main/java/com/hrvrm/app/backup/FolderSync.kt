@@ -69,6 +69,19 @@ class FolderSync(
     }
 
     /**
+     * Called right after a measurement is deleted locally. Without this, the next
+     * [syncAll] would see the folder's file for it, find no matching local row, and
+     * re-import it -- undoing the deletion.
+     */
+    suspend fun deleteMeasurementFile(folderUri: Uri, timestampEpochMs: Long) = runCatching {
+        withContext(Dispatchers.IO) {
+            val folder = DocumentFile.fromTreeUri(context, folderUri) ?: return@withContext
+            val name = measurementFileName(timestampEpochMs)
+            folder.findFile(name)?.delete()
+        }
+    }
+
+    /**
      * Keeps the folder's settings file current -- but first, if *this device* doesn't have
      * credentials saved yet, pulls them from the folder's existing settings file instead of
      * writing over them. Without this, re-picking the same folder right after a reinstall

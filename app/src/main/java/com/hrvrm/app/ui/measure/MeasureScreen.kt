@@ -13,6 +13,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +38,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingFlat
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,6 +58,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -71,6 +79,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ppg.BeatRejectionReason
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 private val BEAT_LOG_ROW_HEIGHT = 24.dp
@@ -78,8 +91,9 @@ private const val BEAT_LOG_VISIBLE_ROWS = 3
 private const val SIGNAL_QUALITY_MAX_BARS = 5
 
 @Composable
-fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
+fun MeasureScreen(viewModel: MeasurementViewModel = viewModel(), onMeasurementClick: (Long) -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
 
@@ -118,7 +132,11 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
     ) {
         when (val state = uiState) {
             is MeasureUiState.Idle, is MeasureUiState.NeedsPermission ->
-                IdleContent(onStart = ::startWithPermissionCheck)
+                TodayDashboardContent(
+                    dashboard = dashboard,
+                    onStart = ::startWithPermissionCheck,
+                    onMeasurementClick = onMeasurementClick,
+                )
 
             is MeasureUiState.NoFlash ->
                 ErrorContent(
@@ -144,23 +162,241 @@ fun MeasureScreen(viewModel: MeasurementViewModel = viewModel()) {
     }
 }
 
+private val measureInstructions =
+    "Cover both the rear camera lens and the flash with your fingertip. " +
+        "Hold still and breathe normally for about a minute."
+
+/**
+ * Idle-state "Today" dashboard: the latest reading plus a 7-day trend, with a shortcut into
+ * its detail and the big circular measure button below. Before the first-ever measurement
+ * ([TodayDashboard.latest] is null) there's nothing to show yet, so it falls back to the
+ * original plain instructions-and-button layout.
+ */
 @Composable
-private fun IdleContent(onStart: () -> Unit) {
-    Text(
-        "Measure HRV",
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
-    )
-    Spacer(Modifier.height(16.dp))
-    Text(
-        "Cover both the rear camera lens and the flash with your fingertip. " +
-            "Hold still and breathe normally for about a minute.",
-        textAlign = TextAlign.Center,
-        style = MaterialTheme.typography.bodyLarge,
-    )
+private fun TodayDashboardContent(dashboard: TodayDashboard, onStart: () -> Unit, onMeasurementClick: (Long) -> Unit) {
+    val latest = dashboard.latest
+    if (latest == null) {
+        Text("Measure HRV", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+        Text(measureInstructions, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
+        Spacer(Modifier.height(32.dp))
+        MeasureButton(onStart)
+        return
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            val dateText = Instant.ofEpochMilli(latest.timestampEpochMs)
+                .atZone(ZoneId.systemDefault())
+                .format(todayCardDateFormatter)
+            val isToday = Instant.ofEpochMilli(latest.timestampEpochMs).atZone(ZoneId.systemDefault()).toLocalDate() ==
+                LocalDate.now()
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    if (isToday) "TODAY" else "LAST MEASUREMENT",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(dateText, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Spacer(Modifier.height(4.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("HRV score", style = MaterialTheme.typography.labelLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "%.1f".format(latest.altiniScaleValue),
+                            fontSize = 48.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = withinRangeColor(latest.withinNormalRange),
+                        )
+                    }
+                    val statusText = when (latest.withinNormalRange) {
+                        true -> "Within range"
+                        false -> "Outside range"
+                        null -> "Building baseline"
+                    }
+                    Text(statusText, style = MaterialTheme.typography.bodyMedium, color = withinRangeColor(latest.withinNormalRange))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    CompactStat("RMSSD", "${latest.rmssdMs.roundToInt()} ms")
+                    Spacer(Modifier.height(10.dp))
+                    CompactStat("Resting HR", "${latest.meanHrBpm.roundToInt()} bpm")
+                }
+            }
+
+            val low = latest.normalRangeLowAltiniScale
+            val high = latest.normalRangeHighAltiniScale
+            if (low != null && high != null) {
+                Spacer(Modifier.height(20.dp))
+                NormalRangeSlider(value = latest.altiniScaleValue, rangeLow = low, rangeHigh = high)
+            }
+        }
+    }
+
+    dashboard.trend?.let { trend ->
+        Spacer(Modifier.height(12.dp))
+        TrendCard(trend)
+    }
+
+    Spacer(Modifier.height(12.dp))
+    Card(
+        onClick = { onMeasurementClick(latest.id) },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text("Last measurement", style = MaterialTheme.typography.labelLarge)
+                val timeText = Instant.ofEpochMilli(latest.timestampEpochMs)
+                    .atZone(ZoneId.systemDefault())
+                    .format(todayCardTimeFormatter)
+                Text(timeText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            }
+            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Open measurement")
+        }
+    }
+
     Spacer(Modifier.height(32.dp))
-    Button(onClick = onStart) {
-        Text("Start measurement")
+    MeasureButton(onStart)
+    Spacer(Modifier.height(16.dp))
+    Text(measureInstructions, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+}
+
+/** A right-aligned label/value pair that sizes to its own content — unlike [MetricRow], which
+ * deliberately stretches full-width for its own (single-column) list layout. */
+@Composable
+private fun CompactStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.End) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private val todayCardDateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+private val todayCardTimeFormatter = DateTimeFormatter.ofPattern("'Today' HH:mm", Locale.ENGLISH)
+
+@Composable
+private fun withinRangeColor(withinNormalRange: Boolean?) = when (withinNormalRange) {
+    true -> MaterialTheme.colorScheme.secondary
+    false -> MaterialTheme.colorScheme.error
+    null -> MaterialTheme.colorScheme.onSurface
+}
+
+/** Big circular call-to-action, replacing the old rectangular "Start measurement" button. */
+@Composable
+private fun MeasureButton(onStart: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(140.dp)
+            .background(MaterialTheme.colorScheme.primary, CircleShape)
+            .clip(CircleShape)
+            .clickable(onClick = onStart),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Filled.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Measure HRV",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+    }
+}
+
+/**
+ * Horizontal gauge showing [value] positioned within a domain padded around
+ * [rangeLow]-[rangeHigh], with that normal-range band highlighted — lets you see at a
+ * glance not just the number but where it sits against your own recent normal.
+ */
+@Composable
+private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double) {
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val bandColor = MaterialTheme.colorScheme.secondary
+    val dotColor = MaterialTheme.colorScheme.primary
+    val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    val span = (rangeHigh - rangeLow).coerceAtLeast(0.1)
+    val pad = span * 0.4
+    val domainLo = minOf(rangeLow - pad, value - pad * 0.3)
+    val domainHi = maxOf(rangeHigh + pad, value + pad * 0.3)
+    val domainSpan = (domainHi - domainLo).coerceAtLeast(0.001)
+
+    Column {
+        Canvas(modifier = Modifier.fillMaxWidth().height(28.dp)) {
+            val trackHeight = 10.dp.toPx()
+            val centerY = size.height / 2f
+            fun xAt(v: Double): Float = ((v - domainLo) / domainSpan).toFloat().coerceIn(0f, 1f) * size.width
+
+            drawRoundRect(
+                color = trackColor,
+                topLeft = Offset(0f, centerY - trackHeight / 2f),
+                size = Size(size.width, trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f),
+            )
+            val bandStart = xAt(rangeLow)
+            val bandEnd = xAt(rangeHigh)
+            drawRoundRect(
+                color = bandColor.copy(alpha = 0.45f),
+                topLeft = Offset(bandStart, centerY - trackHeight / 2f),
+                size = Size((bandEnd - bandStart).coerceAtLeast(1f), trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f),
+            )
+            val dotX = xAt(value)
+            drawCircle(color = dotColor, radius = 9.dp.toPx(), center = Offset(dotX, centerY))
+            drawCircle(color = trackColor, radius = 4.dp.toPx(), center = Offset(dotX, centerY))
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text("%.1f".format(domainLo.coerceAtLeast(0.0)), style = MaterialTheme.typography.labelSmall, color = axisTextColor)
+            Text("Your normal range", style = MaterialTheme.typography.labelSmall, color = axisTextColor)
+            Text("%.1f".format(domainHi), style = MaterialTheme.typography.labelSmall, color = axisTextColor)
+        }
+    }
+}
+
+@Composable
+private fun TrendCard(trend: Trend7d) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Trend (7D)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val (icon, label, color) = when (trend.direction) {
+                    TrendDirection.RISING -> Triple(Icons.Filled.TrendingUp, "Rising", MaterialTheme.colorScheme.secondary)
+                    TrendDirection.FALLING -> Triple(Icons.Filled.TrendingDown, "Falling", MaterialTheme.colorScheme.error)
+                    TrendDirection.STABLE -> Triple(Icons.Filled.TrendingFlat, "Stable", MaterialTheme.colorScheme.onSurface)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(icon, contentDescription = null, tint = color)
+                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "vs 7D baseline",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val sign = if (trend.deltaAltiniScale >= 0) "+" else ""
+                Text(
+                    "$sign%.2f ($sign%.1f%%)".format(trend.deltaAltiniScale, trend.deltaPercent),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
     }
 }
 
@@ -188,6 +424,11 @@ private fun StabilizingContent(state: MeasureUiState.Stabilizing) {
 @Composable
 private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Unit) {
     Text("Measuring…", style = MaterialTheme.typography.headlineSmall)
+    Text(
+        "Keep still and breathe naturally",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     Spacer(Modifier.height(16.dp))
 
     PpgWaveform(
@@ -417,6 +658,8 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
                 liveBpm?.let { "${it.roundToInt()}" } ?: "--",
                 fontSize = 56.sp,

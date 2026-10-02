@@ -326,6 +326,40 @@ posteriore), calcolare un HRV Score personale e caricare il risultato su
    oscilla troppo per essere un'indicazione utile. Con una FC di riposo tipica, la finestra
    di 9s ne contiene quasi sempre 7-12, quindi in pratica "Detecting…" dura solo i primissimi
    secondi di ogni misurazione, non l'intera durata.
+10. **Navigazione in alto + swipe fra le pagine (`ui/nav/AppNavHost.kt`)** — la `NavigationBar`
+    in basso è stata sostituita da una barra in alto ("HRV" + le 3 icone Measure/History/
+    Settings, con una sottolineatura sulla tab attiva) e le 3 schermate principali vivono
+    ora come pagine di un `HorizontalPager` invece che come destinazioni separate del
+    `NavController` — toccare un'icona anima il pager verso quella pagina, trascinare il
+    dito scorre fra le pagine direttamente. Il dettaglio di una misurazione resta una
+    destinazione normale del `NavController` (spinta sopra, non una pagina del pager):
+    non ha senso uno swipe che porti dentro una misurazione specifica.
+11. **Dashboard "Today" (`ui/measure/MeasureScreen.kt`, stato Idle)** — la schermata di
+    partenza, prima solo istruzioni e un pulsante, ora mostra l'ultima misurazione: HRV
+    score (scala ln) con RMSSD e Resting HR affiancati, una barra orizzontale con la
+    posizione del valore odierno dentro il proprio range personale
+    (`normalRangeLowAltiniScale`/`High`, già calcolati, qui solo visualizzati in un widget
+    nuovo), una card "Trend (7D)" e una scorciatoia alla sua pagina di dettaglio. Il pulsante
+    di misurazione è ora un cerchio grande invece del vecchio pulsante rettangolare. Prima
+    della primissima misurazione mai fatta, torna al layout originale (nulla da mostrare).
+    Il **trend a 7 giorni** (`MeasurementViewModel.computeTrend7d`) è un calcolo nuovo:
+    confronta il valore odierno già mediato su 7 letture (`altiniScaleValue`, la stessa
+    media mobile usata da `HrvScoreCalculator` per lo score) con quello della misurazione
+    più vicina a 7 giorni di calendario fa, in percentuale — sotto il 2% di differenza
+    conta come "Stable", altrimenti "Rising" o "Falling". È un calcolo puramente di
+    visualizzazione, non influenza lo score né la baseline.
+12. **Restyling della schermata di misurazione (`ui/measure/MeasureScreen.kt`,
+    `PpgWaveform.kt`)** — aggiunto un sottotitolo sotto "Measuring…", un'icona cuore sopra
+    il bpm nell'anello di progresso, e un effetto glow sull'onda PPG: la stessa linea
+    ridisegnata 2-3 volte con tratto più largo e alpha decrescente dietro quella nitida —
+    niente `graphicsLayer`/`RenderEffect` (richiederebbe API 31+, questo minSdk è 26).
+13. **Eliminazione di una misurazione (`data/MeasurementRepository.deleteMeasurement`)** —
+    icona cestino nel dettaglio di History, con conferma esplicita (azione distruttiva).
+    Cancella non solo la riga sul database locale ma anche tutto ciò che potrebbe farla
+    ricomparire: il file dei dati grezzi se presente (`RawSampleStorage.delete`), e il suo
+    file nella cartella di backup se una è configurata (`FolderSync.deleteMeasurementFile`)
+    — senza quest'ultimo, il prossimo tap su "sync" in History la reimporterebbe dalla
+    cartella, vanificando la cancellazione.
 
 ## Metodologia di tuning di `PpgSignalProcessor`
 

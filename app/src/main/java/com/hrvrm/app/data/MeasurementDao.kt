@@ -31,6 +31,9 @@ interface MeasurementDao {
     @Query("SELECT * FROM measurements WHERE id = :id")
     suspend fun getById(id: Long): MeasurementEntity?
 
+    @Query("DELETE FROM measurements WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     /** Prior readings used to build today's rolling HRV baseline, most recent first. */
     @Query(
         "SELECT * FROM measurements WHERE timestampEpochMs < :beforeEpochMs " +

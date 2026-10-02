@@ -14,7 +14,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -22,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,12 +64,37 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
     var loading by remember(measurementId) { mutableStateOf(true) }
     var uploadInProgress by remember(measurementId) { mutableStateOf(false) }
     var hasRawData by remember(measurementId) { mutableStateOf(false) }
+    var showDeleteConfirm by remember(measurementId) { mutableStateOf(false) }
 
     LaunchedEffect(measurementId) {
         loading = true
         measurement = repository.getById(measurementId)
         loading = false
         hasRawData = rawSampleStorage.hasStoredSamples(measurementId)
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete this measurement?") },
+            text = { Text("This removes it from your device, including its file in the backup folder if one is configured. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    scope.launch {
+                        repository.deleteMeasurement(measurementId)
+                        onBack()
+                    }
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -77,7 +105,17 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
             IconButton(onClick = onBack) {
                 Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text("Measurement", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "Measurement",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            if (measurement != null) {
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete measurement", tint = MaterialTheme.colorScheme.error)
+                }
+            }
         }
 
         Column(
