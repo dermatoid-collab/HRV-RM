@@ -301,7 +301,7 @@ private fun CompactStat(label: String, value: String) {
     }
 }
 
-private val todayCardDateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+private val todayCardDateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.ENGLISH)
 private val fullDateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.ENGLISH)
 private val timeOnlyFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 
