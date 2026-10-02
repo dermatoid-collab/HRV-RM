@@ -344,12 +344,12 @@ private fun MeasureButton(onStart: () -> Unit) {
             Text(
                 "Measure HRV",
                 textAlign = TextAlign.Center,
-                fontSize = MaterialTheme.typography.labelLarge.fontSize * 2,
+                fontSize = MaterialTheme.typography.labelLarge.fontSize * 1.6f,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,
-                // Constrained so "Measure HRV" wraps to two lines instead of overflowing the
-                // circle sideways at this doubled size.
-                modifier = Modifier.width(110.dp),
+                // Constrained so "Measure HRV" wraps cleanly between the two words instead of
+                // overflowing the circle sideways or breaking mid-word.
+                modifier = Modifier.width(120.dp),
             )
         }
     }
@@ -375,27 +375,26 @@ private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double
 
     Column {
         Canvas(modifier = Modifier.fillMaxWidth().height(28.dp)) {
-            // The outer track runs the full width, thin and faint -- the normal-range band
-            // drawn on top is taller and fully saturated, so the two ends read as a lighter,
-            // thinner "extension" of the solid middle section rather than a single flat bar.
-            val outerTrackHeight = 6.dp.toPx()
-            val bandHeight = 12.dp.toPx()
+            // One continuous bar, same height throughout -- a visibly light grey for the
+            // out-of-range portions at each end, fully saturated for the normal-range band
+            // drawn on top of it in the middle.
+            val trackHeight = 10.dp.toPx()
             val centerY = size.height / 2f
             fun xAt(v: Double): Float = ((v - domainLo) / domainSpan).toFloat().coerceIn(0f, 1f) * size.width
 
             drawRoundRect(
-                color = trackColor.copy(alpha = 0.55f),
-                topLeft = Offset(0f, centerY - outerTrackHeight / 2f),
-                size = Size(size.width, outerTrackHeight),
-                cornerRadius = CornerRadius(outerTrackHeight / 2f),
+                color = trackColor,
+                topLeft = Offset(0f, centerY - trackHeight / 2f),
+                size = Size(size.width, trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f),
             )
             val bandStart = xAt(rangeLow)
             val bandEnd = xAt(rangeHigh)
             drawRoundRect(
                 color = bandColor,
-                topLeft = Offset(bandStart, centerY - bandHeight / 2f),
-                size = Size((bandEnd - bandStart).coerceAtLeast(1f), bandHeight),
-                cornerRadius = CornerRadius(bandHeight / 2f),
+                topLeft = Offset(bandStart, centerY - trackHeight / 2f),
+                size = Size((bandEnd - bandStart).coerceAtLeast(1f), trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f),
             )
             val dotX = xAt(value)
             drawCircle(color = dotColor, radius = 9.dp.toPx(), center = Offset(dotX, centerY))
@@ -426,6 +425,13 @@ private fun TrendCard(trend: Trend7d, onClick: () -> Unit) {
                     Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
                 }
             }
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .width(1.dp)
+                    .height(40.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant),
+            )
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     "vs 7D baseline",
@@ -675,11 +681,11 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(
-        modifier = Modifier.size(160.dp),
+        modifier = Modifier.size(192.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidthPx = 11.dp.toPx()
+            val strokeWidthPx = 13.dp.toPx()
             val diameter = size.minDimension - strokeWidthPx
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
@@ -705,11 +711,11 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(24.dp))
+            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(29.dp))
             Spacer(Modifier.height(2.dp))
             Text(
                 liveBpm?.let { "${it.roundToInt()}" } ?: "--",
-                fontSize = 40.sp,
+                fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
@@ -720,7 +726,7 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
             Spacer(Modifier.height(4.dp))
             Text(
                 "${remainingSec}s left",
-                fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.5f,
+                fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.8f,
                 fontWeight = FontWeight.SemiBold,
             )
         }
