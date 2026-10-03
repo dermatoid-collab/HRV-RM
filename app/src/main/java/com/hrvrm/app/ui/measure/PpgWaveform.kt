@@ -2,6 +2,7 @@ package com.hrvrm.app.ui.measure
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -18,7 +19,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 private const val VERTICAL_MARGIN_FRACTION = 0.12f
-private const val STROKE_WIDTH_PX = 8f
+private val STROKE_WIDTH = 3.dp
 
 /**
  * How much each redraw's fresh min/max is allowed to move the *displayed* scale, per
@@ -47,7 +48,8 @@ fun PpgWaveform(samples: List<Double>, modifier: Modifier = Modifier) {
     Canvas(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
     ) {
         if (samples.size < 2) return@Canvas
 
@@ -72,7 +74,7 @@ fun PpgWaveform(samples: List<Double>, modifier: Modifier = Modifier) {
         drawPath(
             path = path,
             color = lineColor,
-            style = Stroke(width = STROKE_WIDTH_PX, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            style = Stroke(width = STROKE_WIDTH.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }
 }

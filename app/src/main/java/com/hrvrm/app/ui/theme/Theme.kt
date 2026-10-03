@@ -44,6 +44,11 @@ val ChartGridLine = Color(0xFF50474E)
 // spec, not reused from anywhere else.
 val NormalRangeTrack = Color(0xFF4A444A)
 
+// Measuring screen: the progress ring's track is near-black, darker than any surface token,
+// and the Cancel button's border is its own mid-grey -- neither reused elsewhere.
+val MeasuringRingTrack = Color(0xFF292329)
+val CancelButtonBorder = Color(0xFF5B535A)
+
 // Card radius is a "Design System Comune" rule shared by all 3 screens, so it lives on the
 // theme (applies to every Card/OutlinedCard's default shape) rather than being repeated as a
 // per-call override.

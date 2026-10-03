@@ -11,6 +11,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -86,6 +87,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ppg.BeatRejectionReason
+import com.hrvrm.app.ui.theme.CancelButtonBorder
+import com.hrvrm.app.ui.theme.MeasuringRingTrack
 import com.hrvrm.app.ui.theme.NormalRangeTrack
 import java.time.Instant
 import java.time.LocalDate
@@ -94,9 +97,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val BEAT_LOG_ROW_HEIGHT = 20.dp
+private val BEAT_LOG_ROW_HEIGHT = 36.dp
 private const val BEAT_LOG_VISIBLE_ROWS = 5
-private const val SIGNAL_QUALITY_MAX_BARS = 5
+private val SIGNAL_QUALITY_BAR_HEIGHTS = listOf(20.dp, 26.dp, 32.dp, 38.dp, 44.dp)
 
 @Composable
 fun MeasureScreen(
@@ -510,41 +513,41 @@ private fun StabilizingContent(state: MeasureUiState.Stabilizing) {
 
 @Composable
 private fun MeasuringContent(state: MeasureUiState.Measuring, onCancel: () -> Unit) {
-    // Everything here is sized to fit on one screen without scrolling -- the ring, the
-    // waveform's aspect ratio, and the gaps between elements are all deliberately more
-    // compact than a "could scroll if it had to" layout would use.
-    Text("Measuring…", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+    Text("Measuring…", fontSize = 30.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+    Spacer(Modifier.height(6.dp))
     Text(
         "Keep still and breathe naturally",
-        style = MaterialTheme.typography.bodyMedium,
+        fontSize = 16.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
     )
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(16.dp))
 
     PpgWaveform(
         samples = state.waveform,
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(3.2f),
+            .aspectRatio(3.4f),
     )
 
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(16.dp))
     MeasuringRing(state.remainingSec, state.totalSec, state.liveBpm)
 
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(16.dp))
     SignalQualityIndicator(state.signalQualityBars)
 
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(16.dp))
     LiveBeatLog(state.beatLog, modifier = Modifier.fillMaxWidth())
 
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(16.dp))
     OutlinedButton(
         onClick = onCancel,
-        // +20% over the default button size (24dp/8dp padding, labelLarge text).
-        contentPadding = PaddingValues(horizontal = 29.dp, vertical = 10.dp),
+        modifier = Modifier.width(150.dp).height(52.dp),
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(1.dp, CancelButtonBorder),
+        contentPadding = PaddingValues(0.dp),
     ) {
-        Text("Cancel", fontSize = MaterialTheme.typography.labelLarge.fontSize * 1.2f)
+        Text("Cancel", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -573,26 +576,31 @@ private fun SignalQualityIndicator(bars: Int?) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             "Signal quality",
-            style = MaterialTheme.typography.labelMedium,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            for (i in 1..SIGNAL_QUALITY_MAX_BARS) {
-                val filled = bars != null && i <= bars
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            SIGNAL_QUALITY_BAR_HEIGHTS.forEachIndexed { index, height ->
+                val filled = bars != null && index + 1 <= bars
                 Box(
                     modifier = Modifier
-                        .width(6.dp)
-                        .height(8.dp + (i * 4).dp)
+                        .width(10.dp)
+                        .height(height)
                         .background(
-                            color = if (filled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(2.dp),
+                            color = if (filled) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
+                            },
+                            shape = RoundedCornerShape(3.dp),
                         ),
                 ) {}
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = labelColor)
+        Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = labelColor)
     }
 }
 
@@ -609,20 +617,21 @@ private fun LiveBeatLog(entries: List<BeatLogEntry>, modifier: Modifier = Modifi
         if (entries.isNotEmpty()) listState.animateScrollToItem(entries.lastIndex)
     }
 
-    Card(modifier = modifier) {
+    OutlinedCard(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 "LIVE BEATS",
-                style = MaterialTheme.typography.labelSmall,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            LiveIndicatorDot(MaterialTheme.colorScheme.secondary)
+            LiveIndicatorDot(MaterialTheme.colorScheme.primary)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 
@@ -630,7 +639,7 @@ private fun LiveBeatLog(entries: List<BeatLogEntry>, modifier: Modifier = Modifi
             Box(modifier = Modifier.fillMaxWidth().height(BEAT_LOG_ROW_HEIGHT * BEAT_LOG_VISIBLE_ROWS)) {
                 Text(
                     "Waiting for the first beat…",
-                    modifier = Modifier.padding(horizontal = 12.dp).align(Alignment.CenterStart),
+                    modifier = Modifier.padding(horizontal = 16.dp).align(Alignment.CenterStart),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -643,7 +652,10 @@ private fun LiveBeatLog(entries: List<BeatLogEntry>, modifier: Modifier = Modifi
                     .fillMaxWidth()
                     .height(BEAT_LOG_ROW_HEIGHT * BEAT_LOG_VISIBLE_ROWS),
             ) {
-                items(entries) { entry -> BeatLogRow(entry) }
+                items(entries) { entry ->
+                    BeatLogRow(entry)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                }
             }
         }
     }
@@ -660,35 +672,44 @@ private fun LiveIndicatorDot(color: Color) {
     )
     Box(
         modifier = Modifier
-            .size(6.dp)
+            .size(9.dp)
             .background(color.copy(alpha = alpha), CircleShape),
     )
 }
 
 @Composable
 private fun BeatLogRow(entry: BeatLogEntry) {
+    // Rejected beats use the same pink as every other alert color in this theme; accepted
+    // ones get the bpm reading in teal, per spec, instead of the default text color.
     val statusColor = if (entry.accepted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+    val rrColor = if (entry.accepted) MaterialTheme.colorScheme.onSurface else statusColor
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(BEAT_LOG_ROW_HEIGHT)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
             formatBeatLogElapsed(entry.elapsedMs),
             fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
+            fontSize = 15.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(36.dp),
+            modifier = Modifier.weight(0.16f),
         )
         Text(
-            "RR ${entry.ibiMs} ms",
+            "RR",
             fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
-            color = if (entry.accepted) MaterialTheme.colorScheme.onSurface else statusColor,
-            modifier = Modifier.width(76.dp),
+            fontSize = 15.sp,
+            color = rrColor,
+            modifier = Modifier.weight(0.10f),
+        )
+        Text(
+            "${entry.ibiMs} ms",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 15.sp,
+            color = rrColor,
+            modifier = Modifier.weight(0.30f),
         )
         Text(
             when (entry.rejectionReason) {
@@ -697,8 +718,9 @@ private fun BeatLogRow(entry: BeatLogEntry) {
                 BeatRejectionReason.IRREGULAR -> "irregular"
             },
             fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
+            fontSize = 15.sp,
             color = statusColor,
+            modifier = Modifier.weight(0.44f),
         )
     }
 }
@@ -719,7 +741,7 @@ private fun formatBeatLogElapsed(ms: Long): String {
 @Composable
 private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val progress = 1f - remainingSec / totalSec.toFloat()
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val trackColor = MeasuringRingTrack
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(
@@ -753,22 +775,22 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(29.dp))
-            Spacer(Modifier.height(2.dp))
+            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(40.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
                 liveBpm?.let { "${it.roundToInt()}" } ?: "--",
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 64.sp,
+                fontWeight = FontWeight(650),
             )
             Text(
                 if (liveBpm != null) "bpm" else "detecting pulse…",
-                style = MaterialTheme.typography.bodySmall,
+                fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
                 "${remainingSec}s left",
-                fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.8f,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
             )
         }
