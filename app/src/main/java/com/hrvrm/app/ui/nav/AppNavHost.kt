@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
@@ -29,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -107,7 +110,8 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
     }
 }
 
-private val TAB_UNDERLINE_WIDTH = 28.dp
+private val TAB_UNDERLINE_WIDTH = 32.dp
+private val TAB_ICON_SIZE = 28.dp
 
 @Composable
 private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
@@ -118,12 +122,12 @@ private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
             // claims that inset itself -- without this the title/icons crowded the clock and
             // battery icons instead of sitting cleanly below them.
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 20.dp, vertical = 2.dp),
+            .padding(horizontal = 24.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             "HRV-RM",
-            fontSize = MaterialTheme.typography.headlineSmall.fontSize * 0.8f,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
@@ -140,14 +144,17 @@ private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
                         icon,
                         contentDescription = destination.label,
                         tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(TAB_ICON_SIZE),
                     )
                 }
+                // IconButton's 48dp touch target centers the 28dp icon with 10dp above and
+                // below it, so the icon's own bottom edge sits at 38dp -- +8dp gap per spec.
                 Box(
                     modifier = Modifier
-                        .padding(top = 42.dp)
+                        .padding(top = 46.dp)
                         .width(if (selected) TAB_UNDERLINE_WIDTH else 0.dp)
-                        .height(2.dp)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .height(3.dp)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(1.5.dp)),
                 )
             }
         }

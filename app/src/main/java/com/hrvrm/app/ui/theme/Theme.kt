@@ -1,9 +1,12 @@
 package com.hrvrm.app.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 // Always-dark palette (no light variant): matches a measurement app that's mostly used
 // in a dim room first thing in the morning.
@@ -37,6 +40,15 @@ val TertiaryText = Color(0xFF817981)
 // site per the spec's per-use ranges (e.g. grid lines vs. a normal-range band fill differ).
 val ChartGridLine = Color(0xFF50474E)
 
+// The normal-range gauge's track is its own slightly-lighter-than-outlineVariant grey in the
+// spec, not reused from anywhere else.
+val NormalRangeTrack = Color(0xFF4A444A)
+
+// Card radius is a "Design System Comune" rule shared by all 3 screens, so it lives on the
+// theme (applies to every Card/OutlinedCard's default shape) rather than being repeated as a
+// per-call override.
+private val AppShapes = Shapes(medium = RoundedCornerShape(16.dp))
+
 // The spec reuses the same pink for "primary action" and "HRV alert / outside range" --
 // unlike the previous palette's separate (brighter) error color, there's deliberately no
 // distinct red/error hue here. error/onError just mirror primary/onPrimary so the two can
@@ -62,5 +74,5 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun HrvRmTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = DarkColors, content = content)
+    MaterialTheme(colorScheme = DarkColors, shapes = AppShapes, content = content)
 }

@@ -13,6 +13,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,6 +57,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -83,6 +86,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ppg.BeatRejectionReason
+import com.hrvrm.app.ui.theme.NormalRangeTrack
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -134,7 +138,7 @@ fun MeasureScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 24.dp)),
+            .padding(PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top,
     ) {
@@ -192,13 +196,20 @@ private fun TodayDashboardContent(
     if (latest == null) {
         Text("Measure HRV", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
-        Text(measureInstructions, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            measureInstructions,
+            textAlign = TextAlign.Center,
+            fontSize = 15.sp,
+            lineHeight = 21.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(0.88f),
+        )
         Spacer(Modifier.height(32.dp))
         MeasureButton(onStart)
         return
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
             val dateText = Instant.ofEpochMilli(latest.timestampEpochMs)
                 .atZone(ZoneId.systemDefault())
@@ -219,14 +230,15 @@ private fun TodayDashboardContent(
             HorizontalDivider()
             Spacer(Modifier.height(16.dp))
 
+            // 65:35 split between the HRV number and the RMSSD/Resting HR column, per spec.
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("HRV score", style = MaterialTheme.typography.labelLarge)
+                Column(modifier = Modifier.weight(0.65f)) {
+                    Text("HRV score", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "%.1f".format(latest.altiniScaleValue),
-                            fontSize = 48.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 62.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = withinRangeColor(latest.withinNormalRange),
                         )
                     }
@@ -235,7 +247,12 @@ private fun TodayDashboardContent(
                         false -> "Outside range"
                         null -> "Building baseline"
                     }
-                    Text(statusText, style = MaterialTheme.typography.bodyMedium, color = withinRangeColor(latest.withinNormalRange))
+                    Text(
+                        statusText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = withinRangeColor(latest.withinNormalRange),
+                    )
                 }
                 Box(
                     modifier = Modifier
@@ -244,7 +261,7 @@ private fun TodayDashboardContent(
                         .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.outlineVariant),
                 )
-                Column(horizontalAlignment = Alignment.End) {
+                Column(modifier = Modifier.weight(0.35f), horizontalAlignment = Alignment.End) {
                     CompactStat("RMSSD", "${latest.rmssdMs.roundToInt()} ms")
                     Spacer(Modifier.height(10.dp))
                     CompactStat("Resting HR", "${latest.meanHrBpm.roundToInt()} bpm")
@@ -266,20 +283,20 @@ private fun TodayDashboardContent(
     }
 
     Spacer(Modifier.height(12.dp))
-    Card(
+    OutlinedCard(
         onClick = { onMeasurementClick(latest.id) },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 92.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column {
-                Text("Last measurement", style = MaterialTheme.typography.labelLarge)
+                Text("Last measurement", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 Text(
                     relativeDateTimeLabel(latest.timestampEpochMs),
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -290,7 +307,14 @@ private fun TodayDashboardContent(
     Spacer(Modifier.height(32.dp))
     MeasureButton(onStart)
     Spacer(Modifier.height(16.dp))
-    Text(measureInstructions, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+    Text(
+        measureInstructions,
+        textAlign = TextAlign.Center,
+        fontSize = 15.sp,
+        lineHeight = 21.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(0.88f),
+    )
 }
 
 /** A right-aligned label/value pair that sizes to its own content — unlike [MetricRow], which
@@ -298,8 +322,8 @@ private fun TodayDashboardContent(
 @Composable
 private fun CompactStat(label: String, value: String) {
     Column(horizontalAlignment = Alignment.End) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -331,29 +355,38 @@ private fun withinRangeColor(withinNormalRange: Boolean?) = when (withinNormalRa
 private fun MeasureButton(onStart: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(140.dp)
+            .size(180.dp)
             .background(MaterialTheme.colorScheme.primary, CircleShape)
             .clip(CircleShape)
             .clickable(onClick = onStart),
         contentAlignment = Alignment.Center,
     ) {
+        // Purely decorative inset ring -- a lighter tint of the button's own fill, not a
+        // separate theme token since nothing else in the app reuses this exact color.
+        Box(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxSize()
+                .border(1.5.dp, Color(0xFFFFD0DB).copy(alpha = 0.8f), CircleShape),
+        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 Icons.Filled.Favorite,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(38.dp),
+                modifier = Modifier.size(42.dp),
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(18.dp))
             Text(
                 "Measure HRV",
                 textAlign = TextAlign.Center,
-                fontSize = MaterialTheme.typography.labelLarge.fontSize * 1.6f,
-                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                lineHeight = 26.sp,
+                fontWeight = FontWeight(650),
                 color = MaterialTheme.colorScheme.onPrimary,
                 // Constrained so "Measure HRV" wraps cleanly between the two words instead of
                 // overflowing the circle sideways or breaking mid-word.
-                modifier = Modifier.width(120.dp),
+                modifier = Modifier.width(140.dp),
             )
         }
     }
@@ -366,12 +399,9 @@ private fun MeasureButton(onStart: () -> Unit) {
  */
 @Composable
 private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double) {
-    // surfaceVariant is too close to the card's own background to read as a track at all
-    // (confirmed on-device) -- outlineVariant has the contrast the divider lines already
-    // rely on elsewhere on this card. holeColor is kept separate for the thumb's punched-out
-    // center, which should still blend with the card rather than stand out as grey.
-    val trackColor = MaterialTheme.colorScheme.outlineVariant
-    val holeColor = MaterialTheme.colorScheme.surfaceVariant
+    val trackColor = NormalRangeTrack
+    // The card's own background, so the marker reads as a hollow ring rather than a filled dot.
+    val holeColor = MaterialTheme.colorScheme.surface
     val bandColor = MaterialTheme.colorScheme.secondary
     val dotColor = MaterialTheme.colorScheme.primary
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -384,10 +414,7 @@ private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double
 
     Column {
         Canvas(modifier = Modifier.fillMaxWidth().height(28.dp)) {
-            // One continuous bar, same height throughout -- a visibly light grey for the
-            // out-of-range portions at each end, fully saturated for the normal-range band
-            // drawn on top of it in the middle.
-            val trackHeight = 10.dp.toPx()
+            val trackHeight = 8.dp.toPx()
             val centerY = size.height / 2f
             fun xAt(v: Double): Float = ((v - domainLo) / domainSpan).toFloat().coerceIn(0f, 1f) * size.width
 
@@ -405,23 +432,25 @@ private fun NormalRangeSlider(value: Double, rangeLow: Double, rangeHigh: Double
                 size = Size((bandEnd - bandStart).coerceAtLeast(1f), trackHeight),
                 cornerRadius = CornerRadius(trackHeight / 2f),
             )
+            // Marker: 24dp outer diameter, a 6dp-thick pink ring (per spec) -- a filled pink
+            // circle with a smaller card-colored circle punched out of its center.
             val dotX = xAt(value)
-            drawCircle(color = dotColor, radius = 9.dp.toPx(), center = Offset(dotX, centerY))
-            drawCircle(color = holeColor, radius = 4.dp.toPx(), center = Offset(dotX, centerY))
+            drawCircle(color = dotColor, radius = 12.dp.toPx(), center = Offset(dotX, centerY))
+            drawCircle(color = holeColor, radius = 6.dp.toPx(), center = Offset(dotX, centerY))
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("%.1f".format(domainLo.coerceAtLeast(0.0)), style = MaterialTheme.typography.labelSmall, color = axisTextColor)
-            Text("Your normal range", style = MaterialTheme.typography.labelSmall, color = axisTextColor)
-            Text("%.1f".format(domainHi), style = MaterialTheme.typography.labelSmall, color = axisTextColor)
+            Text("%.1f".format(domainLo.coerceAtLeast(0.0)), fontSize = 13.sp, color = axisTextColor)
+            Text("Your normal range", fontSize = 13.sp, color = axisTextColor)
+            Text("%.1f".format(domainHi), fontSize = 13.sp, color = axisTextColor)
         }
     }
 }
 
 @Composable
 private fun TrendCard(trend: Trend7d, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(20.dp)) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Trend (7D)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val (icon, label, color) = when (trend.direction) {
@@ -431,17 +460,17 @@ private fun TrendCard(trend: Trend7d, onClick: () -> Unit) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(icon, contentDescription = null, tint = color)
-                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                    Text(label, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = color)
                 }
             }
             Box(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .width(1.dp)
-                    .height(40.dp)
+                    .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.outlineVariant),
             )
-            Column(horizontalAlignment = Alignment.End) {
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                 Text(
                     "vs 7D baseline",
                     style = MaterialTheme.typography.labelMedium,
@@ -450,8 +479,8 @@ private fun TrendCard(trend: Trend7d, onClick: () -> Unit) {
                 val sign = if (trend.deltaAltiniScale >= 0) "+" else ""
                 Text(
                     "$sign%.2f ($sign%.1f%%)".format(trend.deltaAltiniScale, trend.deltaPercent),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
