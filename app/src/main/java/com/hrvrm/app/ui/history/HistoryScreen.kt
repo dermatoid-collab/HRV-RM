@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,12 +18,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
@@ -56,21 +60,21 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
         }
 
         if (dailyTrend.size >= 2) {
-            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
-                HrvTrendChart(dailyTrend, modifier = Modifier.padding(10.dp))
+            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+                HrvTrendChart(dailyTrend, modifier = Modifier.padding(16.dp))
             }
         }
 
         if (dailyRhrTrend.size >= 2) {
-            Card(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
-                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(10.dp))
+            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(16.dp))
             }
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(measurements, key = { it.id }) { measurement ->
                 HistoryRow(measurement, onClick = { onMeasurementClick(measurement.id) })
@@ -94,7 +98,7 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
         ) {
             Text(
                 "History",
-                fontSize = MaterialTheme.typography.headlineSmall.fontSize * 0.85f,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
             )
             IconButton(onClick = onSyncClick, enabled = !state.inProgress) {
@@ -114,9 +118,10 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
             }
         }
         state.result?.let { result ->
+            Spacer(Modifier.height(8.dp))
             Text(
                 result,
-                style = MaterialTheme.typography.labelSmall,
+                fontSize = 15.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -127,36 +132,41 @@ private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Lo
 
 @Composable
 private fun HistoryRow(measurement: MeasurementEntity, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
+            Column(modifier = Modifier.weight(0.68f)) {
                 val dateText = Instant.ofEpochMilli(measurement.timestampEpochMs)
                     .atZone(ZoneId.systemDefault())
                     .format(dateFormatter)
-                Text(dateText, style = MaterialTheme.typography.bodyMedium)
+                Text(dateText, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 Text(
                     "RMSSD ${measurement.rmssdMs.roundToInt()} ms · ${measurement.meanHrBpm.roundToInt()} bpm",
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val scoreColor = when (measurement.withinNormalRange) {
-                    true -> MaterialTheme.colorScheme.secondary
-                    false -> MaterialTheme.colorScheme.error
-                    null -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                Text(
-                    "%.1f".format(measurement.altiniScaleValue),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = scoreColor,
-                )
-                Spacer(Modifier.width(8.dp))
+            val scoreColor = when (measurement.withinNormalRange) {
+                true -> MaterialTheme.colorScheme.secondary
+                false -> MaterialTheme.colorScheme.error
+                null -> MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Text(
+                "%.1f".format(measurement.altiniScaleValue),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = scoreColor,
+                modifier = Modifier.weight(0.17f),
+            )
+
+            Row(
+                modifier = Modifier.weight(0.15f),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(
                     if (measurement.uploadedToIntervals) Icons.Filled.CloudDone else Icons.Filled.CloudOff,
                     contentDescription = null,
@@ -165,6 +175,13 @@ private fun HistoryRow(measurement: MeasurementEntity, onClick: () -> Unit) {
                     } else {
                         MaterialTheme.colorScheme.error
                     },
+                    modifier = Modifier.size(24.dp),
+                )
+                Icon(
+                    Icons.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

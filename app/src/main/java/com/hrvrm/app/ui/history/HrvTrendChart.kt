@@ -1,5 +1,6 @@
 package com.hrvrm.app.ui.history
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -7,11 +8,14 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -43,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
+import com.hrvrm.app.ui.theme.ChartGridLine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -157,7 +162,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ToggleChip("HRV score", metric == TrendMetric.LN_SCALE) { onChange(TrendMetric.LN_SCALE) }
         ToggleChip("Score %", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
     }
@@ -165,26 +170,30 @@ private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
 
 @Composable
 private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val bg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
     val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = onClick,
         color = bg,
         contentColor = fg,
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.height(48.dp),
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-        )
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 10.dp),
+            )
+        }
     }
 }
 
 @Composable
 private fun RangePresets(selected: String?, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         rangeOptions.forEach { (label, days) ->
             RangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
@@ -194,12 +203,13 @@ private fun RangePresets(selected: String?, onSelect: (label: String, days: Int?
 @Composable
 private fun RangePresetButton(label: String, selected: Boolean, onClick: () -> Unit) {
     val contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+    val modifier = Modifier.height(48.dp)
     if (selected) {
-        Button(onClick = onClick, contentPadding = contentPadding) {
+        Button(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
             Text(label, style = MaterialTheme.typography.labelSmall)
         }
     } else {
-        OutlinedButton(onClick = onClick, contentPadding = contentPadding) {
+        OutlinedButton(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
             Text(label, style = MaterialTheme.typography.labelSmall)
         }
     }
@@ -247,6 +257,7 @@ private fun TrendCanvas(
 ) {
     val textMeasurer = rememberTextMeasurer()
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridLineColor = ChartGridLine
     val bandColor = MaterialTheme.colorScheme.secondary
     val okColor = MaterialTheme.colorScheme.secondary
     val outColor = MaterialTheme.colorScheme.error
@@ -358,7 +369,7 @@ private fun TrendCanvas(
             val v = domain.start + (domain.endInclusive - domain.start) * s / steps
             val y = yAt(v)
             drawLine(
-                color = axisTextColor.copy(alpha = 0.25f),
+                color = gridLineColor.copy(alpha = 0.55f),
                 start = Offset(plotLeft, y),
                 end = Offset(plotRight, y),
                 strokeWidth = 1.dp.toPx(),
@@ -405,29 +416,31 @@ private fun TrendCanvas(
         drawPath(
             linePath,
             color = lineColor.copy(alpha = 0.9f),
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
 
-        // status markers, thinned out so dense windows don't smear into a blob
+        // status markers, thinned out so dense windows don't smear into a blob. Per spec,
+        // every point is the same 10dp-diameter dot with a 2dp outline -- only the fill color
+        // (teal/pink) encodes within/outside range; "building baseline" keeps its own open-
+        // ring treatment since the spec doesn't cover that third state.
         val visibleCount = (i1 - i0 + 1).coerceAtLeast(1)
         val markerEveryN = (visibleCount / 60).coerceAtLeast(1)
-        val ringPx = 5.dp.toPx()
-        val markerPx = 3.5.dp.toPx()
+        val markerPx = 5.dp.toPx()
+        val outlinePx = 2.dp.toPx()
         var i = i0
         while (i <= i1) {
             val p = points[i]
             val v = valueOf(p)
             if (v != null) {
                 val x = xAt(i); val y = yAt(v)
-                drawCircle(color = surfaceColor, radius = ringPx, center = Offset(x, y))
                 when (p.withinNormalRange) {
-                    true -> drawCircle(color = okColor, radius = markerPx, center = Offset(x, y))
+                    true -> {
+                        drawCircle(color = okColor, radius = markerPx, center = Offset(x, y))
+                        drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
+                    }
                     false -> {
-                        val d = markerPx
-                        val diamond = Path().apply {
-                            moveTo(x, y - d); lineTo(x + d, y); lineTo(x, y + d); lineTo(x - d, y); close()
-                        }
-                        drawPath(diamond, color = outColor)
+                        drawCircle(color = outColor, radius = markerPx, center = Offset(x, y))
+                        drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
                     }
                     null -> drawCircle(
                         color = buildingColor,
@@ -440,11 +453,12 @@ private fun TrendCanvas(
             i += markerEveryN
         }
 
-        // selection crosshair
+        // selection crosshair -- also the spec's "latest vertical reference" when nothing is
+        // selected, since it already defaults to the most recent point.
         val idx = selectedIndex ?: points.lastIndex
         if (idx in i0..i1) {
             val x = xAt(idx)
-            drawLine(color = selectionColor, start = Offset(x, plotTop), end = Offset(x, plotBottom), strokeWidth = 1.dp.toPx())
+            drawLine(color = selectionColor, start = Offset(x, plotTop), end = Offset(x, plotBottom), strokeWidth = 1.5.dp.toPx())
         }
 
         // x-axis start/end date labels

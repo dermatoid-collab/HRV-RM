@@ -34,8 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.height
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
+import com.hrvrm.app.ui.theme.ChartGridLine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -150,7 +152,7 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun RhrRangePresets(selected: String?, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         rhrRangeOptions.forEach { (label, days) ->
             RhrRangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
@@ -160,12 +162,13 @@ private fun RhrRangePresets(selected: String?, onSelect: (label: String, days: I
 @Composable
 private fun RhrRangePresetButton(label: String, selected: Boolean, onClick: () -> Unit) {
     val contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+    val modifier = Modifier.height(48.dp)
     if (selected) {
-        Button(onClick = onClick, contentPadding = contentPadding) {
+        Button(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
             Text(label, style = MaterialTheme.typography.labelSmall)
         }
     } else {
-        OutlinedButton(onClick = onClick, contentPadding = contentPadding) {
+        OutlinedButton(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
             Text(label, style = MaterialTheme.typography.labelSmall)
         }
     }
@@ -184,7 +187,9 @@ private fun RhrCanvas(
     val lineColor = MaterialTheme.colorScheme.tertiary
     val bandColor = MaterialTheme.colorScheme.tertiary
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridLineColor = ChartGridLine
     val selectionColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surface
 
     // Read fresh via rememberUpdatedState: the pointerInput below is keyed on Unit so it
     // never restarts, and would otherwise keep using whichever points/bounds were current
@@ -255,7 +260,7 @@ private fun RhrCanvas(
             val v = domainLo + (domainHi - domainLo) * s / steps
             val y = yAt(v)
             drawLine(
-                color = axisTextColor.copy(alpha = 0.25f),
+                color = gridLineColor.copy(alpha = 0.55f),
                 start = Offset(plotLeft, y),
                 end = Offset(plotRight, y),
                 strokeWidth = 1.dp.toPx(),
@@ -302,22 +307,30 @@ private fun RhrCanvas(
         drawPath(
             linePath,
             color = lineColor,
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
 
-        // dots, the most recent one emphasized
+        // Daily dots stay small -- this chart (unlike HrvTrendChart's thinned status markers)
+        // draws one per visible day, so the spec's 10dp point diameter would overlap into a
+        // solid blob on a 30-90 day window. Only the most recent day gets the full spec
+        // treatment (10dp, 2dp outline), the same way it's visually emphasized today.
         for (i in i0..i1) {
             val x = xAt(i)
             val y = yAt(points[i].meanHrBpm)
-            val radius = if (i == i1) 4.5.dp.toPx() else 3.dp.toPx()
-            drawCircle(color = lineColor, radius = radius, center = Offset(x, y))
+            if (i == i1) {
+                drawCircle(color = lineColor, radius = 5.dp.toPx(), center = Offset(x, y))
+                drawCircle(color = surfaceColor, radius = 5.dp.toPx(), center = Offset(x, y), style = Stroke(width = 2.dp.toPx()))
+            } else {
+                drawCircle(color = lineColor, radius = 3.dp.toPx(), center = Offset(x, y))
+            }
         }
 
-        // selection crosshair
+        // selection crosshair -- also the spec's "latest vertical reference" by default, since
+        // idx already falls back to i1 (the most recent day) when nothing is selected.
         val idx = selectedIndex ?: i1
         if (idx in i0..i1) {
             val x = xAt(idx)
-            drawLine(color = selectionColor, start = Offset(x, plotTop), end = Offset(x, plotBottom), strokeWidth = 1.dp.toPx())
+            drawLine(color = selectionColor, start = Offset(x, plotTop), end = Offset(x, plotBottom), strokeWidth = 1.5.dp.toPx())
         }
 
         // start/end date labels
