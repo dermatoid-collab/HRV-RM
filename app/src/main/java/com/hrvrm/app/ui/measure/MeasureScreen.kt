@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
@@ -51,6 +52,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -761,7 +763,16 @@ private fun ResultContent(
     val measurement = state.measurement
     val context = LocalContext.current
 
-    Text("Result", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    // Without this, the only way back to the Today dashboard was the "New measurement"
+    // button below -- not obviously a "go back" action, since it reads like it starts a
+    // new reading rather than just dismissing this one.
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onNewMeasurement) {
+            Icon(Icons.Filled.ArrowBack, contentDescription = "Back to Today")
+        }
+        Spacer(Modifier.width(4.dp))
+        Text("Result", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    }
     Spacer(Modifier.height(16.dp))
 
     ScoreBadge(measurement)
