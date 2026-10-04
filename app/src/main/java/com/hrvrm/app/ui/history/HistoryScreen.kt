@@ -64,21 +64,21 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
         }
 
         if (dailyTrend.size >= 2) {
-            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
-                HrvTrendChart(dailyTrend, modifier = Modifier.padding(16.dp))
+            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 6.dp, 16.dp, 0.dp)) {
+                HrvTrendChart(dailyTrend, modifier = Modifier.padding(12.dp))
             }
         }
 
         if (dailyRhrTrend.size >= 2) {
-            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
-                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(16.dp))
+            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 6.dp, 16.dp, 0.dp)) {
+                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(12.dp))
             }
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             items(measurements, key = { it.id }) { measurement ->
                 HistoryRow(
@@ -162,16 +162,16 @@ private fun rhrStatusFor(measurement: MeasurementEntity, dailyRhrTrend: List<Dai
 
 @Composable
 private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onClick: () -> Unit) {
-    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp)) {
+    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(0.68f)) {
                 val dateText = Instant.ofEpochMilli(measurement.timestampEpochMs)
                     .atZone(ZoneId.systemDefault())
                     .format(dateFormatter)
-                Text(dateText, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text(dateText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 val rhrColor = when (rhrStatus) {
                     true -> MaterialTheme.colorScheme.secondary
                     false -> MaterialTheme.colorScheme.error
@@ -180,12 +180,12 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
                 Row {
                     Text(
                         "RMSSD ${measurement.rmssdMs.roundToInt()} ms · ",
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         "${measurement.meanHrBpm.roundToInt()} bpm",
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = rhrColor,
                     )
@@ -199,7 +199,7 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
             }
             Text(
                 "%.1f".format(measurement.altiniScaleValue),
-                fontSize = 26.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = scoreColor,
                 modifier = Modifier.weight(0.17f),
@@ -218,13 +218,13 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
                     } else {
                         MaterialTheme.colorScheme.error
                     },
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(20.dp),
                 )
                 Icon(
                     Icons.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }

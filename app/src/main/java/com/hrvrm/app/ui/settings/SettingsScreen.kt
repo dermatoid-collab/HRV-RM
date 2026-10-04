@@ -3,6 +3,7 @@ package com.hrvrm.app.ui.settings
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.hrvrm.app.BuildConfig
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -240,5 +241,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
         }
+
+        HorizontalDivider()
+
+        Text(
+            "Build ${BuildConfig.VERSION_CODE} (${BuildConfig.VERSION_NAME})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

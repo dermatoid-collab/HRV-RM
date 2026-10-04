@@ -67,8 +67,10 @@ private const val RHR_DEFAULT_RANGE_LABEL = "30D"
 private const val RHR_AXIS_WIDTH_DP = 26f
 private val rhrDayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 private val rhrRangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null)
-/** Same shrunk pill height as HrvTrendChart's CHIP_HEIGHT -- see its comment. */
-private val RHR_CHIP_HEIGHT = 36.dp
+/** Same shrunk pill treatment as HrvTrendChart's CHIP_HEIGHT -- see its comment. */
+private val RHR_CHIP_HEIGHT = 30.dp
+private val RHR_CHIP_PADDING_H = 7.dp
+private val RHR_CHIP_FONT_SIZE = 10.sp
 
 private fun rhrStartIndexForLastDays(points: List<DailyRhrPoint>, days: Int): Int {
     val cutoff = points.last().date.minusDays((days - 1).toLong())
@@ -101,9 +103,8 @@ fun rhrBandAt(points: List<DailyRhrPoint>, index: Int): ClosedFloatingPointRange
  * Whether the day at [index] falls inside its own [rhrBandAt] -- the same "within normal
  * range" idea [HrvScoreCalculator] applies to HRV, just computed display-side here since RHR
  * has no equivalent server-side baseline. Null (not yet enough prior days) mirrors the HRV
- * card's "Building baseline" state. Deliberately only ever shown as text, never as a marker
- * color on the chart itself -- blue is this chart's one color, reserved for the RHR
- * visualization, per the design spec.
+ * card's "Building baseline" state. Drives both the text readout and each point's marker
+ * color below, the same teal/pink treatment [HrvTrendChart] uses for its own status dots.
  */
 fun rhrWithinNormalRange(points: List<DailyRhrPoint>, index: Int): Boolean? {
     val band = rhrBandAt(points, index) ?: return null
@@ -132,7 +133,7 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Resting HR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text("Resting HR", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             RhrRangePresets(selectedRangeLabel) { label, days ->
                 rangeStart = if (days == null) 0 else rhrStartIndexForLastDays(points, days)
                 selectedRangeLabel = label
@@ -154,21 +155,21 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             null -> MaterialTheme.colorScheme.onSurfaceVariant
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         ) {
-            Text(shown.date.format(rhrDayFormatter), style = MaterialTheme.typography.bodyMedium)
-            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(shown.date.format(rhrDayFormatter), fontSize = 12.sp)
+            Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 "${shown.meanHrBpm.roundToInt()} bpm",
-                style = MaterialTheme.typography.titleMedium,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 shownStatusLabel,
-                style = MaterialTheme.typography.bodyMedium,
+                fontSize = 12.sp,
                 color = shownStatusColor,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -182,14 +183,14 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             onSelect = { selectedIndex = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2.6f),
+                .aspectRatio(3.0f),
         )
     }
 }
 
 @Composable
 private fun RhrRangePresets(selected: String?, modifier: Modifier = Modifier, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = modifier) {
         rhrRangeOptions.forEach { (label, days) ->
             RhrRangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
@@ -212,9 +213,9 @@ private fun RhrRangePresetButton(label: String, selected: Boolean, onClick: () -
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
             Text(
                 label,
-                style = MaterialTheme.typography.labelSmall,
+                fontSize = RHR_CHIP_FONT_SIZE,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                modifier = Modifier.padding(horizontal = 10.dp),
+                modifier = Modifier.padding(horizontal = RHR_CHIP_PADDING_H),
             )
         }
     }
@@ -232,6 +233,9 @@ private fun RhrCanvas(
     val textMeasurer = rememberTextMeasurer()
     val lineColor = MaterialTheme.colorScheme.tertiary
     val bandColor = MaterialTheme.colorScheme.tertiary
+    val okColor = MaterialTheme.colorScheme.secondary
+    val outColor = MaterialTheme.colorScheme.error
+    val buildingColor = MaterialTheme.colorScheme.onSurfaceVariant
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridLineColor = ChartGridLine
     val selectionColor = MaterialTheme.colorScheme.primary
@@ -359,15 +363,22 @@ private fun RhrCanvas(
         // Daily dots stay small -- this chart (unlike HrvTrendChart's thinned status markers)
         // draws one per visible day, so the spec's 10dp point diameter would overlap into a
         // solid blob on a 30-90 day window. Only the most recent day gets the full spec
-        // treatment (10dp, 2dp outline), the same way it's visually emphasized today.
+        // treatment (10dp, 2dp outline), the same way it's visually emphasized today. Each
+        // dot's fill color is its own day's within/outside-range status (teal/pink), same as
+        // HrvTrendChart's markers -- the line and area fill stay blue regardless.
         for (i in i0..i1) {
             val x = xAt(i)
             val y = yAt(points[i].meanHrBpm)
+            val dotColor = when (rhrWithinNormalRange(points, i)) {
+                true -> okColor
+                false -> outColor
+                null -> buildingColor
+            }
             if (i == i1) {
-                drawCircle(color = lineColor, radius = 5.dp.toPx(), center = Offset(x, y))
+                drawCircle(color = dotColor, radius = 5.dp.toPx(), center = Offset(x, y))
                 drawCircle(color = surfaceColor, radius = 5.dp.toPx(), center = Offset(x, y), style = Stroke(width = 2.dp.toPx()))
             } else {
-                drawCircle(color = lineColor, radius = 3.dp.toPx(), center = Offset(x, y))
+                drawCircle(color = dotColor, radius = 3.dp.toPx(), center = Offset(x, y))
             }
         }
 
