@@ -22,12 +22,15 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,7 +81,11 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(measurements, key = { it.id }) { measurement ->
-                HistoryRow(measurement, onClick = { onMeasurementClick(measurement.id) })
+                HistoryRow(
+                    measurement,
+                    rhrStatus = rhrStatusFor(measurement, dailyRhrTrend),
+                    onClick = { onMeasurementClick(measurement.id) },
+                )
             }
         }
     }
@@ -89,6 +96,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
  * measurements) since restoring the whole history after a reinstall — the main reason this
  * button exists — starts from exactly that empty state. See [HistoryViewModel.syncFolder].
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp, 2.dp, 16.dp, 0.dp)) {
@@ -99,30 +107,37 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
         ) {
             Text(
                 "History",
-                fontSize = 30.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
             )
-            IconButton(onClick = onSyncClick, enabled = !state.inProgress) {
-                if (state.inProgress) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(
-                        Icons.Filled.Sync,
-                        contentDescription = "Sync with backup folder",
-                        tint = if (state.folderConfigured) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+            // Material3's IconButton otherwise enforces a 48dp touch target regardless of its
+            // own modifier size, which was what kept this header tall even after shrinking
+            // everything else -- disabling that enforcement here (just for this one small
+            // utility icon) is what actually lets the header shrink.
+            CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+                IconButton(onClick = onSyncClick, enabled = !state.inProgress, modifier = Modifier.size(32.dp)) {
+                    if (state.inProgress) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            Icons.Filled.Sync,
+                            contentDescription = "Sync with backup folder",
+                            tint = if (state.folderConfigured) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }
         state.result?.let { result ->
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 result,
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -131,8 +146,22 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
 
 private val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH)
 
+/**
+ * Whether [measurement]'s own RHR falls inside its calendar day's [rhrBandAt] band within
+ * [dailyRhrTrend] -- tested against the measurement's own value rather than inheriting its
+ * day's representative (latest-of-day) reading, so two same-day measurements can show
+ * different statuses if that's genuinely what happened.
+ */
+private fun rhrStatusFor(measurement: MeasurementEntity, dailyRhrTrend: List<DailyRhrPoint>): Boolean? {
+    val day = Instant.ofEpochMilli(measurement.timestampEpochMs).atZone(ZoneId.systemDefault()).toLocalDate()
+    val dayIndex = dailyRhrTrend.indexOfFirst { it.date == day }
+    if (dayIndex < 0) return null
+    val band = rhrBandAt(dailyRhrTrend, dayIndex) ?: return null
+    return measurement.meanHrBpm in band
+}
+
 @Composable
-private fun HistoryRow(measurement: MeasurementEntity, onClick: () -> Unit) {
+private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onClick: () -> Unit) {
     OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(16.dp),
@@ -143,11 +172,24 @@ private fun HistoryRow(measurement: MeasurementEntity, onClick: () -> Unit) {
                     .atZone(ZoneId.systemDefault())
                     .format(dateFormatter)
                 Text(dateText, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                Text(
-                    "RMSSD ${measurement.rmssdMs.roundToInt()} ms · ${measurement.meanHrBpm.roundToInt()} bpm",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val rhrColor = when (rhrStatus) {
+                    true -> MaterialTheme.colorScheme.secondary
+                    false -> MaterialTheme.colorScheme.error
+                    null -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Row {
+                    Text(
+                        "RMSSD ${measurement.rmssdMs.roundToInt()} ms · ",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "${measurement.meanHrBpm.roundToInt()} bpm",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = rhrColor,
+                    )
+                }
             }
 
             val scoreColor = when (measurement.withinNormalRange) {

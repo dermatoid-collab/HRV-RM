@@ -10,7 +10,6 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,9 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -98,6 +95,10 @@ private const val DEFAULT_RANGE_LABEL = "30D"
 private const val AXIS_WIDTH_DP = 34f
 private val dayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 private val rangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null)
+/** Shared height for the metric/range pills -- shrunk from Material3's 48dp default so the
+ * header row (title + pills) takes up less vertical space, leaving more room for the chart
+ * and the history list below. */
+private val CHIP_HEIGHT = 36.dp
 
 private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float {
     val cutoff = points.last().date.minusDays((days - 1).toLong())
@@ -179,7 +180,7 @@ private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
         contentColor = fg,
         border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.height(48.dp),
+        modifier = Modifier.height(CHIP_HEIGHT),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
             Text(
@@ -193,25 +194,36 @@ private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RangePresets(selected: String?, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun RangePresets(selected: String?, modifier: Modifier = Modifier, onSelect: (label: String, days: Int?) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         rangeOptions.forEach { (label, days) ->
             RangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
     }
 }
 
+/** Same pill treatment as the metric [ToggleChip] above -- a plain Surface (no Material3
+ * minimum-width constraint, unlike Button/OutlinedButton) so 4 of these plus the metric
+ * toggle fit the card's width without scrolling or clipping. */
 @Composable
 private fun RangePresetButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    val contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-    val modifier = Modifier.height(48.dp)
-    if (selected) {
-        Button(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
-        }
-    } else {
-        OutlinedButton(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
+    val bg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        onClick = onClick,
+        color = bg,
+        contentColor = fg,
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.height(CHIP_HEIGHT),
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 10.dp),
+            )
         }
     }
 }

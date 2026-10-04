@@ -1,18 +1,20 @@
 package com.hrvrm.app.ui.history
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -63,7 +66,9 @@ private const val RHR_DEFAULT_WINDOW_DAYS = 30
 private const val RHR_DEFAULT_RANGE_LABEL = "30D"
 private const val RHR_AXIS_WIDTH_DP = 26f
 private val rhrDayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
-private val rhrRangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90)
+private val rhrRangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null)
+/** Same shrunk pill height as HrvTrendChart's CHIP_HEIGHT -- see its comment. */
+private val RHR_CHIP_HEIGHT = 36.dp
 
 private fun rhrStartIndexForLastDays(points: List<DailyRhrPoint>, days: Int): Int {
     val cutoff = points.last().date.minusDays((days - 1).toLong())
@@ -77,10 +82,10 @@ private fun rhrStartIndexForLastDays(points: List<DailyRhrPoint>, days: Int): In
  * days *before* it (never including the day itself). Reuses the same constants as the HRV
  * score's baseline so the two charts' bands mean the same thing ("personal normal range"),
  * even though RHR has no server-computed baseline of its own — this is purely a display-time
- * statistic, not persisted or used anywhere else. Null until at least
- * [HrvScoreCalculator.MIN_BASELINE_SAMPLES] prior days exist.
+ * statistic, computed fresh wherever it's needed (this chart, the History list rows) rather
+ * than persisted. Null until at least [HrvScoreCalculator.MIN_BASELINE_SAMPLES] prior days exist.
  */
-private fun rhrBandAt(points: List<DailyRhrPoint>, index: Int): ClosedFloatingPointRange<Double>? {
+fun rhrBandAt(points: List<DailyRhrPoint>, index: Int): ClosedFloatingPointRange<Double>? {
     val windowStart = (index - HrvScoreCalculator.BASELINE_WINDOW_SIZE).coerceAtLeast(0)
     if (windowStart >= index) return null
     val baseline = (windowStart until index).map { points[it].meanHrBpm }
@@ -90,6 +95,19 @@ private fun rhrBandAt(points: List<DailyRhrPoint>, index: Int): ClosedFloatingPo
     val sd = sqrt(variance).coerceAtLeast(1e-6)
     val half = HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER * sd
     return (mean - half)..(mean + half)
+}
+
+/**
+ * Whether the day at [index] falls inside its own [rhrBandAt] -- the same "within normal
+ * range" idea [HrvScoreCalculator] applies to HRV, just computed display-side here since RHR
+ * has no equivalent server-side baseline. Null (not yet enough prior days) mirrors the HRV
+ * card's "Building baseline" state. Deliberately only ever shown as text, never as a marker
+ * color on the chart itself -- blue is this chart's one color, reserved for the RHR
+ * visualization, per the design spec.
+ */
+fun rhrWithinNormalRange(points: List<DailyRhrPoint>, index: Int): Boolean? {
+    val band = rhrBandAt(points, index) ?: return null
+    return points[index].meanHrBpm in band
 }
 
 /**
@@ -122,7 +140,19 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             }
         }
 
-        val shown = selectedIndex?.let { points.getOrNull(it) } ?: points.last()
+        val shownIndex = selectedIndex ?: points.lastIndex
+        val shown = points[shownIndex]
+        val shownStatus = rhrWithinNormalRange(points, shownIndex)
+        val shownStatusLabel = when (shownStatus) {
+            true -> "Within range"
+            false -> "Outside range"
+            null -> "Building baseline"
+        }
+        val shownStatusColor = when (shownStatus) {
+            true -> MaterialTheme.colorScheme.secondary
+            false -> MaterialTheme.colorScheme.error
+            null -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -134,6 +164,13 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
                 "${shown.meanHrBpm.roundToInt()} bpm",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+            )
+            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                shownStatusLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = shownStatusColor,
+                fontWeight = FontWeight.SemiBold,
             )
         }
 
@@ -151,25 +188,34 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun RhrRangePresets(selected: String?, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun RhrRangePresets(selected: String?, modifier: Modifier = Modifier, onSelect: (label: String, days: Int?) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         rhrRangeOptions.forEach { (label, days) ->
             RhrRangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
     }
 }
 
+/** Same pill treatment as HrvTrendChart's RangePresetButton/ToggleChip -- see its comment. */
 @Composable
 private fun RhrRangePresetButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    val contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-    val modifier = Modifier.height(48.dp)
-    if (selected) {
-        Button(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
-        }
-    } else {
-        OutlinedButton(onClick = onClick, contentPadding = contentPadding, modifier = modifier) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
+    val bg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        onClick = onClick,
+        color = bg,
+        contentColor = fg,
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.height(RHR_CHIP_HEIGHT),
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxHeight()) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 10.dp),
+            )
         }
     }
 }
