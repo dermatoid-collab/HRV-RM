@@ -77,14 +77,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * The picked folder's own display name. DocumentFile's name lookup (a query against the
-     * tree-rooted document URI) is the normal path and works for most providers -- local
-     * storage, Drive, Dropbox -- but some third-party providers don't answer it; a couple
-     * were seen answering the same COLUMN_DISPLAY_NAME query against the bare tree URI
-     * instead, so that's tried too. The provider's own document id is never shown as a last
-     * resort: for some it's a readable path ("primary:Download/HRV-RM-Backup"), but for
-     * others it's an opaque account-scoped token ("acc=1;doc=encoded=...") with no folder
-     * name in it at all -- a generic label beats leaking either kind of internal id.
+     * The picked folder's own display name, tried three ways in order:
+     * 1. A COLUMN_DISPLAY_NAME query against the tree-rooted document URI (what
+     *    DocumentFile.getName() does) -- works for most providers: local storage, Drive,
+     *    Dropbox.
+     * 2. The same query against the bare tree URI instead -- a couple of providers were seen
+     *    answering only that one.
+     * 3. Uri.lastPathSegment (already percent-decoded by Uri itself, so no manual decoding
+     *    needed) with its "volume:" / provider-id prefix and any parent path stripped, kept
+     *    only for a provider whose tree document id is a real path ("primary:Download/HRV-RM-
+     *    Backup" -> "HRV-RM-Backup") -- skipped for an opaque, non-path id
+     *    ("acc=1;doc=encoded=...") which has no real name hiding in it.
+     * A generic label beats leaking any of those internal ids when all three come up empty.
      */
     private fun folderDisplayName(uri: Uri): String {
         queryDisplayName(uri)?.let { return it }
@@ -92,6 +96,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
         }.getOrNull()
         documentUri?.let { docUri -> queryDisplayName(docUri)?.let { return it } }
+        uri.lastPathSegment
+            ?.substringAfterLast(':')
+            ?.substringAfterLast('/')
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
         return "Selected folder"
     }
 
