@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.hrvrm.app.BuildConfig
+import com.hrvrm.app.ui.nav.AppResumeSignal
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -22,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -40,7 +43,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val context = LocalContext.current
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) viewModel.importBackup(uri)
+        if (uri != null) viewModel.onBackupFilePicked(uri)
     }
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) viewModel.pickBackupFolder(uri)
@@ -167,6 +170,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
+                        AppResumeSignal.suppressNextResume = true
                         context.startActivity(Intent.createChooser(intent, "Export HRV-RM backup"))
                     }
                 },
@@ -178,7 +182,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 Text("Export backup")
             }
             OutlinedButton(
-                onClick = { importLauncher.launch(arrayOf("*/*")) },
+                onClick = {
+                    AppResumeSignal.suppressNextResume = true
+                    importLauncher.launch(arrayOf("*/*"))
+                },
                 enabled = !state.backupInProgress,
             ) {
                 Text("Import backup")
@@ -232,7 +239,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { folderLauncher.launch(null) }) {
+            OutlinedButton(
+                onClick = {
+                    AppResumeSignal.suppressNextResume = true
+                    folderLauncher.launch(null)
+                },
+            ) {
                 Text(if (state.backupFolderName == null) "Choose folder" else "Change folder")
             }
             if (state.backupFolderName != null) {
@@ -248,6 +260,26 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             "Build ${BuildConfig.VERSION_CODE} (${BuildConfig.VERSION_NAME})",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (state.pendingImportUri != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelImport,
+            title = { Text("Import backup?") },
+            text = {
+                Text(
+                    "This adds any measurements not already saved, and replaces your saved " +
+                        "Intervals.icu API key and Athlete ID with the ones in this backup, " +
+                        "if it has them. This can't be undone.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmImport) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelImport) { Text("Cancel") }
+            },
         )
     }
 }

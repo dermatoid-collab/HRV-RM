@@ -87,6 +87,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ppg.BeatRejectionReason
+import com.hrvrm.app.ui.nav.AppResumeSignal
 import com.hrvrm.app.ui.theme.CancelButtonBorder
 import com.hrvrm.app.ui.theme.MeasuringRingTrack
 import com.hrvrm.app.ui.theme.NormalRangeTrack
@@ -124,6 +125,7 @@ fun MeasureScreen(
         if (granted) {
             viewModel.start(lifecycleOwner)
         } else {
+            AppResumeSignal.suppressNextResume = true
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
@@ -841,6 +843,7 @@ private fun ResultContent(
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
+                AppResumeSignal.suppressNextResume = true
                 context.startActivity(Intent.createChooser(intent, "Export raw HRV data"))
             }
         },

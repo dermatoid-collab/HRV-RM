@@ -56,13 +56,19 @@ private sealed class Destination(val label: String) {
 private val destinations = listOf(Destination.Measure, Destination.History, Destination.Settings)
 
 /**
- * Set by [com.hrvrm.app.MainActivity.onUserLeaveHint], which Android calls only when the user
- * explicitly leaves via Home/Recents -- never when this app pauses itself to launch another
- * activity (a picker, a share sheet). A single process-wide flag is enough here since there's
- * only ever one Activity instance at a time.
+ * Set to true by a screen right before it launches a picker, chooser or permission prompt via
+ * [androidx.activity.result.ActivityResultLauncher.launch] or a share-sheet
+ * [android.content.Context.startActivity] -- any of those stop this activity too, causing the
+ * exact same ON_START transition as a real "user pressed Home and came back", which
+ * AppNavHost's resume logic would otherwise misread as that. Consumed (reset to false) by the
+ * very next ON_START regardless of outcome, so it only ever suppresses that one resume and
+ * can't wedge the feature off if a launch's callback never fires. A single process-wide flag
+ * is enough since there's only ever one Activity instance at a time; relying on
+ * Activity.onUserLeaveHint() instead was tried first but proved unreliable in practice --
+ * it's meant to skip exactly this "paused to launch an intent" case, but didn't on-device.
  */
 object AppResumeSignal {
-    var userLeftIntentionally = false
+    var suppressNextResume = false
 }
 
 /**
@@ -84,20 +90,19 @@ fun AppNavHost(startAtSettings: Boolean = false) {
         var hasStartedOnce = false
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
-                // ON_START also fires when this app's own file/folder picker or share sheet
-                // closes and control returns to us -- not just on a real home/recents resume
-                // -- since launching that intent stops this activity too. Gating on
-                // AppResumeSignal.userLeftIntentionally (set only from onUserLeaveHint(),
-                // which Android explicitly does NOT call for "paused to launch an intent")
-                // is what tells the two apart; without it, returning from "Import backup" or
-                // "Choose folder" bounced straight back to the Today tab before the result
-                // was ever visible.
-                if (hasStartedOnce && AppResumeSignal.userLeftIntentionally) {
+                // ON_START also fires when this app's own file/folder picker, share sheet or
+                // permission prompt closes and control returns to us -- not just on a real
+                // home/recents resume -- since launching any of those stops this activity too.
+                // AppResumeSignal.suppressNextResume (set by the screen right before each such
+                // launch) is what tells the two apart; without it, returning from "Import
+                // backup" or "Choose folder" bounced straight back to the Today tab before the
+                // result was ever visible.
+                if (hasStartedOnce && !AppResumeSignal.suppressNextResume) {
                     navController.popBackStack(route = "main", inclusive = false)
                     resumeSignal++
                 }
                 hasStartedOnce = true
-                AppResumeSignal.userLeftIntentionally = false
+                AppResumeSignal.suppressNextResume = false
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

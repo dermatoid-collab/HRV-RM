@@ -45,6 +45,7 @@ import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.ui.measure.MetricRow
 import com.hrvrm.app.ui.measure.ScoreBadge
 import com.hrvrm.app.ui.measure.UploadStatus
+import com.hrvrm.app.ui.nav.AppResumeSignal
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -193,6 +194,7 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
                                             putExtra(Intent.EXTRA_STREAM, uri)
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
+                                        AppResumeSignal.suppressNextResume = true
                                         context.startActivity(Intent.createChooser(intent, "Export raw HRV data"))
                                     }
                                 }

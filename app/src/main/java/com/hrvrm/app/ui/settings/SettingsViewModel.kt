@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.content.FileProvider
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
@@ -37,6 +36,10 @@ data class SettingsUiState(
     val backupResult: String? = null,
     val backupFolderName: String? = null,
     val keepRawData: Boolean = false,
+    /** Set once a backup file is picked, cleared once the user confirms or cancels applying
+     * it -- see [SettingsViewModel.confirmImport]. Importing overwrites the saved Intervals.icu
+     * credentials when the backup carries them, so it isn't applied immediately on picking. */
+    val pendingImportUri: Uri? = null,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -74,19 +77,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * The picked folder's own display name, not the whole encoded tree URI. DocumentFile's
-     * name lookup is the normal path and works for most providers, but some return null or
-     * blank for it; falling back straight to [Uri.lastPathSegment] in that case shows the
-     * raw, still-encoded document id ("primary%3ADownload%2FHRV-RM-Backup" -- the volume and
-     * every parent folder, not a name), so instead this decodes the tree document id itself
-     * and keeps only its last path segment, the actual folder's name.
+     * The picked folder's own display name. DocumentFile's name lookup (a query against the
+     * tree-rooted document URI) is the normal path and works for most providers -- local
+     * storage, Drive, Dropbox -- but some third-party providers don't answer it; a couple
+     * were seen answering the same COLUMN_DISPLAY_NAME query against the bare tree URI
+     * instead, so that's tried too. The provider's own document id is never shown as a last
+     * resort: for some it's a readable path ("primary:Download/HRV-RM-Backup"), but for
+     * others it's an opaque account-scoped token ("acc=1;doc=encoded=...") with no folder
+     * name in it at all -- a generic label beats leaking either kind of internal id.
      */
     private fun folderDisplayName(uri: Uri): String {
-        val fromDocumentFile = runCatching { DocumentFile.fromTreeUri(getApplication(), uri)?.name }.getOrNull()
-        if (!fromDocumentFile.isNullOrBlank()) return fromDocumentFile
-        val treeDocId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
-        return treeDocId?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: uri.toString()
+        queryDisplayName(uri)?.let { return it }
+        val documentUri = runCatching {
+            DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
+        }.getOrNull()
+        documentUri?.let { docUri -> queryDisplayName(docUri)?.let { return it } }
+        return "Selected folder"
     }
+
+    private fun queryDisplayName(uri: Uri): String? =
+        runCatching {
+            getApplication<Application>().contentResolver
+                .query(uri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
+                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
 
     /** Called after the user picks a folder via [androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree]. */
     fun pickBackupFolder(uri: Uri) {
@@ -185,12 +199,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Restores measurements (and Intervals.icu credentials, if present) from a backup file
-     * picked via the system file/document UI. Reads gzip-compressed backups (the current
-     * format) and plain-JSON ones (backups made before compression was added) alike, by
-     * sniffing the gzip magic bytes rather than trusting the file extension.
+     * Called right after the user picks a backup file -- stages it behind the confirmation
+     * dialog (Settings screen shows it whenever [SettingsUiState.pendingImportUri] is set)
+     * rather than importing immediately, since this overwrites the saved Intervals.icu
+     * credentials when the backup carries them.
      */
-    fun importBackup(uri: Uri) {
+    fun onBackupFilePicked(uri: Uri) {
+        _uiState.update { it.copy(pendingImportUri = uri) }
+    }
+
+    fun cancelImport() {
+        _uiState.update { it.copy(pendingImportUri = null) }
+    }
+
+    fun confirmImport() {
+        val uri = _uiState.value.pendingImportUri ?: return
+        _uiState.update { it.copy(pendingImportUri = null) }
+        importBackup(uri)
+    }
+
+    /**
+     * Restores measurements (and Intervals.icu credentials, if present) from a backup file —
+     * see [confirmImport], which is the only caller. Reads gzip-compressed backups (the
+     * current format) and plain-JSON ones (backups made before compression was added) alike,
+     * by sniffing the gzip magic bytes rather than trusting the file extension.
+     */
+    private fun importBackup(uri: Uri) {
         viewModelScope.launch {
             _uiState.update { it.copy(backupInProgress = true, backupResult = null) }
             val context = getApplication<Application>()

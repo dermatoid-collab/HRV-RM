@@ -46,15 +46,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Android calls this only when the user explicitly leaves via Home/Recents, never when
-    // this activity merely pauses to launch another one (a file/folder picker, a share sheet)
-    // -- see AppResumeSignal's doc. Marking it here is what lets AppNavHost tell a real
-    // "left and came back" resume apart from a picker/chooser closing.
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        AppResumeSignal.userLeftIntentionally = true
-    }
-
     companion object {
         /** Set on the intent the weekly backup-reminder notification launches — see BackupReminderWorker. */
         const val EXTRA_OPEN_BACKUP = "open_backup"
@@ -70,6 +61,9 @@ private fun RequestNotificationPermissionOnLaunch() {
     LaunchedEffect(Unit) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-        if (!granted) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!granted) {
+            AppResumeSignal.suppressNextResume = true
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 }
