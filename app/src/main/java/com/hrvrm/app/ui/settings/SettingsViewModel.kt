@@ -3,6 +3,7 @@ package com.hrvrm.app.ui.settings
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
@@ -72,8 +73,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { settingsStore.setKeepRawData(value) }
     }
 
-    private fun folderDisplayName(uri: Uri): String =
-        DocumentFile.fromTreeUri(getApplication(), uri)?.name ?: uri.lastPathSegment ?: uri.toString()
+    /**
+     * The picked folder's own display name, not the whole encoded tree URI. DocumentFile's
+     * name lookup is the normal path and works for most providers, but some return null or
+     * blank for it; falling back straight to [Uri.lastPathSegment] in that case shows the
+     * raw, still-encoded document id ("primary%3ADownload%2FHRV-RM-Backup" -- the volume and
+     * every parent folder, not a name), so instead this decodes the tree document id itself
+     * and keeps only its last path segment, the actual folder's name.
+     */
+    private fun folderDisplayName(uri: Uri): String {
+        val fromDocumentFile = runCatching { DocumentFile.fromTreeUri(getApplication(), uri)?.name }.getOrNull()
+        if (!fromDocumentFile.isNullOrBlank()) return fromDocumentFile
+        val treeDocId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+        return treeDocId?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: uri.toString()
+    }
 
     /** Called after the user picks a folder via [androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree]. */
     fun pickBackupFolder(uri: Uri) {

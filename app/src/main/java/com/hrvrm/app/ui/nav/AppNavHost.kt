@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -37,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
@@ -58,6 +56,16 @@ private sealed class Destination(val label: String) {
 private val destinations = listOf(Destination.Measure, Destination.History, Destination.Settings)
 
 /**
+ * Set by [com.hrvrm.app.MainActivity.onUserLeaveHint], which Android calls only when the user
+ * explicitly leaves via Home/Recents -- never when this app pauses itself to launch another
+ * activity (a picker, a share sheet). A single process-wide flag is enough here since there's
+ * only ever one Activity instance at a time.
+ */
+object AppResumeSignal {
+    var userLeftIntentionally = false
+}
+
+/**
  * Top-level navigation: "main" hosts the 3 tabs as swipeable pager pages (plus the same
  * icon row tapped directly), "measurementDetail/{id}" is a normal pushed screen reached by
  * tapping a History row or the dashboard's "Last measurement" card -- it's deliberately
@@ -66,8 +74,8 @@ private val destinations = listOf(Destination.Measure, Destination.History, Dest
 @Composable
 fun AppNavHost(startAtSettings: Boolean = false) {
     val navController = rememberNavController()
-    // Bumped once per app resume (ON_START after the activity has already been stopped, not
-    // the initial cold launch) so MainTabsScreen can snap its pager back to the first tab --
+    // Bumped once per real app resume (the user backgrounded with home/recents and came back,
+    // not the initial cold launch) so MainTabsScreen can snap its pager back to the first tab --
     // see the LaunchedEffect below that reads it.
     var resumeSignal by remember { mutableIntStateOf(0) }
 
@@ -76,15 +84,20 @@ fun AppNavHost(startAtSettings: Boolean = false) {
         var hasStartedOnce = false
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
-                if (hasStartedOnce) {
-                    // Reopened after being backgrounded with home/recents (not a force-stop,
-                    // which would tear down this whole composition and restart cold anyway) --
-                    // always land back on the Today dashboard instead of wherever was left open.
+                // ON_START also fires when this app's own file/folder picker or share sheet
+                // closes and control returns to us -- not just on a real home/recents resume
+                // -- since launching that intent stops this activity too. Gating on
+                // AppResumeSignal.userLeftIntentionally (set only from onUserLeaveHint(),
+                // which Android explicitly does NOT call for "paused to launch an intent")
+                // is what tells the two apart; without it, returning from "Import backup" or
+                // "Choose folder" bounced straight back to the Today tab before the result
+                // was ever visible.
+                if (hasStartedOnce && AppResumeSignal.userLeftIntentionally) {
                     navController.popBackStack(route = "main", inclusive = false)
                     resumeSignal++
-                } else {
-                    hasStartedOnce = true
                 }
+                hasStartedOnce = true
+                AppResumeSignal.userLeftIntentionally = false
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -151,7 +164,6 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
 }
 
 private val TAB_UNDERLINE_WIDTH = 32.dp
-private val TAB_ICON_SIZE = 28.dp
 
 @Composable
 private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
@@ -167,7 +179,7 @@ private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
     ) {
         Text(
             "HRV-RM",
-            fontSize = 28.sp,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
@@ -184,14 +196,13 @@ private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
                         icon,
                         contentDescription = destination.label,
                         tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(TAB_ICON_SIZE),
                     )
                 }
-                // IconButton's 48dp touch target centers the 28dp icon with 10dp above and
-                // below it, so the icon's own bottom edge sits at 38dp -- +8dp gap per spec.
+                // IconButton's 48dp touch target centers Icon's default 24dp size with 12dp
+                // above and below it, so the icon's own bottom edge sits at 36dp -- +8dp gap.
                 Box(
                     modifier = Modifier
-                        .padding(top = 46.dp)
+                        .padding(top = 44.dp)
                         .width(if (selected) TAB_UNDERLINE_WIDTH else 0.dp)
                         .height(3.dp)
                         .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(1.5.dp)),

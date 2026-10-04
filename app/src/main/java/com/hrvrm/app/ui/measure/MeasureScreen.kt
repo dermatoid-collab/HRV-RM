@@ -14,6 +14,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -342,6 +343,14 @@ private fun MeasureButton(onStart: () -> Unit) {
             .clickable(onClick = onStart),
         contentAlignment = Alignment.Center,
     ) {
+        // Purely decorative inset ring -- a lighter tint of the button's own fill, not a
+        // separate theme token since nothing else in the app reuses this exact color.
+        Box(
+            modifier = Modifier
+                .padding(6.dp)
+                .fillMaxSize()
+                .border(1.5.dp, Color(0xFFFFD0DB).copy(alpha = 0.8f), CircleShape),
+        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 Icons.Filled.Favorite,

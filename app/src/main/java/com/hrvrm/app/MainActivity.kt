@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.hrvrm.app.ui.nav.AppNavHost
+import com.hrvrm.app.ui.nav.AppResumeSignal
 import com.hrvrm.app.ui.theme.HrvRmTheme
 
 class MainActivity : ComponentActivity() {
@@ -43,6 +44,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    // Android calls this only when the user explicitly leaves via Home/Recents, never when
+    // this activity merely pauses to launch another one (a file/folder picker, a share sheet)
+    // -- see AppResumeSignal's doc. Marking it here is what lets AppNavHost tell a real
+    // "left and came back" resume apart from a picker/chooser closing.
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        AppResumeSignal.userLeftIntentionally = true
     }
 
     companion object {
