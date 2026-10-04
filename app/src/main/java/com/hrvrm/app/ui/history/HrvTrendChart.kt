@@ -95,14 +95,14 @@ private const val DEFAULT_RANGE_LABEL = "30D"
 private const val AXIS_WIDTH_DP = 34f
 private val dayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 private val rangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null)
-/** Shared height for the metric/range pills -- shrunk from Material3's 48dp default so the
- * header row (title + pills) takes up less vertical space, leaving more room for the chart
- * and the history list below. Kept tight (height, padding and font all reduced together)
- * since 6 pills (2 metric + 4 range) must fit one row's width on a narrow phone without
- * scrolling -- a looser pill here is what let "All" get clipped by the card edge before. */
-private val CHIP_HEIGHT = 30.dp
-private val CHIP_PADDING_H = 7.dp
-private val CHIP_FONT_SIZE = 10.sp
+/** Shared sizing for the metric/range pills -- matches the original (pre-spec) Button/
+ * OutlinedButton proportions (11sp label, 4dp gaps) but on a plain Surface, which has no
+ * Material3 minimum-width constraint -- that constraint, not the proportions, was what let
+ * "All" get clipped by the card edge once the row grew to 6 pills. */
+private val CHIP_HEIGHT = 32.dp
+private val CHIP_PADDING_H = 8.dp
+private val CHIP_GAP = 4.dp
+private val CHIP_FONT_SIZE = 11.sp
 
 private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float {
     val cutoff = points.last().date.minusDays((days - 1).toLong())
@@ -138,7 +138,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
             if (hasScore) {
                 MetricToggle(effectiveMetric, onChange = { metric = it })
             } else {
-                Text("HRV score", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("HRV score", style = MaterialTheme.typography.labelSmall)
             }
             RangePresets(selectedRangeLabel) { label, days ->
                 viewStart = if (days == null) 0f else startIndexForLastDays(points, days)
@@ -168,7 +168,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(CHIP_GAP)) {
         ToggleChip("HRV score", metric == TrendMetric.LN_SCALE) { onChange(TrendMetric.LN_SCALE) }
         ToggleChip("Score %", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
     }
@@ -199,7 +199,7 @@ private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun RangePresets(selected: String?, modifier: Modifier = Modifier, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(CHIP_GAP), modifier = modifier) {
         rangeOptions.forEach { (label, days) ->
             RangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
@@ -249,15 +249,15 @@ private fun SelectionReadout(point: DailyHrvPoint, metric: TrendMetric) {
         TrendMetric.SCORE -> point.hrvScore?.toString() ?: "–"
     }
     Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     ) {
-        Text(point.date.format(dayFormatter), fontSize = 12.sp)
-        Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(valueText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(statusLabel, fontSize = 12.sp, color = statusColor, fontWeight = FontWeight.SemiBold)
+        Text(point.date.format(dayFormatter), style = MaterialTheme.typography.bodyMedium)
+        Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(valueText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(statusLabel, style = MaterialTheme.typography.bodyMedium, color = statusColor, fontWeight = FontWeight.SemiBold)
     }
 }
 

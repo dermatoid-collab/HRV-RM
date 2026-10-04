@@ -5,15 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -64,20 +59,20 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
         }
 
         if (dailyTrend.size >= 2) {
-            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 6.dp, 16.dp, 0.dp)) {
-                HrvTrendChart(dailyTrend, modifier = Modifier.padding(12.dp))
+            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+                HrvTrendChart(dailyTrend, modifier = Modifier.padding(10.dp))
             }
         }
 
         if (dailyRhrTrend.size >= 2) {
-            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 6.dp, 16.dp, 0.dp)) {
-                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(12.dp))
+            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(10.dp))
             }
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             items(measurements, key = { it.id }) { measurement ->
@@ -107,7 +102,7 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
         ) {
             Text(
                 "History",
-                fontSize = 22.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
             // Material3's IconButton otherwise enforces a 48dp touch target regardless of its
@@ -134,10 +129,9 @@ private fun FolderSyncHeader(state: FolderSyncUiState, onSyncClick: () -> Unit) 
             }
         }
         state.result?.let { result ->
-            Spacer(Modifier.height(4.dp))
             Text(
                 result,
-                fontSize = 13.sp,
+                fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -162,16 +156,16 @@ private fun rhrStatusFor(measurement: MeasurementEntity, dailyRhrTrend: List<Dai
 
 @Composable
 private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onClick: () -> Unit) {
-    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)) {
+    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(0.68f)) {
                 val dateText = Instant.ofEpochMilli(measurement.timestampEpochMs)
                     .atZone(ZoneId.systemDefault())
                     .format(dateFormatter)
-                Text(dateText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(dateText, style = MaterialTheme.typography.bodyMedium)
                 val rhrColor = when (rhrStatus) {
                     true -> MaterialTheme.colorScheme.secondary
                     false -> MaterialTheme.colorScheme.error
@@ -180,12 +174,11 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
                 Row {
                     Text(
                         "RMSSD ${measurement.rmssdMs.roundToInt()} ms · ",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
                         "${measurement.meanHrBpm.roundToInt()} bpm",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                         color = rhrColor,
                     )
@@ -199,8 +192,8 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
             }
             Text(
                 "%.1f".format(measurement.altiniScaleValue),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
                 color = scoreColor,
                 modifier = Modifier.weight(0.17f),
             )
@@ -218,13 +211,12 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
                     } else {
                         MaterialTheme.colorScheme.error
                     },
-                    modifier = Modifier.size(20.dp),
                 )
                 Icon(
                     Icons.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

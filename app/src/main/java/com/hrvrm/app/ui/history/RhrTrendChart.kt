@@ -67,10 +67,11 @@ private const val RHR_DEFAULT_RANGE_LABEL = "30D"
 private const val RHR_AXIS_WIDTH_DP = 26f
 private val rhrDayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 private val rhrRangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to null)
-/** Same shrunk pill treatment as HrvTrendChart's CHIP_HEIGHT -- see its comment. */
-private val RHR_CHIP_HEIGHT = 30.dp
-private val RHR_CHIP_PADDING_H = 7.dp
-private val RHR_CHIP_FONT_SIZE = 10.sp
+/** Same pill treatment as HrvTrendChart's CHIP_HEIGHT -- see its comment. */
+private val RHR_CHIP_HEIGHT = 32.dp
+private val RHR_CHIP_PADDING_H = 8.dp
+private val RHR_CHIP_GAP = 4.dp
+private val RHR_CHIP_FONT_SIZE = 11.sp
 
 private fun rhrStartIndexForLastDays(points: List<DailyRhrPoint>, days: Int): Int {
     val cutoff = points.last().date.minusDays((days - 1).toLong())
@@ -133,7 +134,7 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Resting HR", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text("Resting HR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             RhrRangePresets(selectedRangeLabel) { label, days ->
                 rangeStart = if (days == null) 0 else rhrStartIndexForLastDays(points, days)
                 selectedRangeLabel = label
@@ -155,21 +156,21 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             null -> MaterialTheme.colorScheme.onSurfaceVariant
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         ) {
-            Text(shown.date.format(rhrDayFormatter), fontSize = 12.sp)
-            Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(shown.date.format(rhrDayFormatter), style = MaterialTheme.typography.bodyMedium)
+            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 "${shown.meanHrBpm.roundToInt()} bpm",
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
-            Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 shownStatusLabel,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = shownStatusColor,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -190,7 +191,7 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun RhrRangePresets(selected: String?, modifier: Modifier = Modifier, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(RHR_CHIP_GAP), modifier = modifier) {
         rhrRangeOptions.forEach { (label, days) ->
             RhrRangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
