@@ -1,3 +1,6 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -22,7 +25,7 @@ android {
         // Falls back to something sane for a local (non-CI) build.
         val buildNumber = (project.findProperty("buildNumber") as String?) ?: "local"
         val buildDate = (project.findProperty("buildDate") as String?)
-            ?: java.text.SimpleDateFormat("ddMMyy").format(java.util.Date())
+            ?: SimpleDateFormat("ddMMyy").format(Date())
         buildConfigField("String", "BUILD_NUMBER", "\"$buildNumber\"")
         buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
     }
