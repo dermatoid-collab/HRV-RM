@@ -16,6 +16,9 @@ import com.hrvrm.app.ppg.PpgSignalProcessor
 import com.hrvrm.app.ui.history.DailyHrvPoint
 import com.hrvrm.app.ui.history.buildDailyPoints
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Collections
 import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
@@ -281,7 +284,10 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
 
         val context = getApplication<Application>()
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-        val file = File(dir, "hrv-rm-raw-${export.exportedAtEpochMs}.json")
+        val timestamp = Instant.ofEpochMilli(export.exportedAtEpochMs)
+            .atZone(ZoneId.systemDefault())
+            .format(RAW_EXPORT_FILENAME_FORMATTER)
+        val file = File(dir, "hrv-rm-raw_$timestamp.json")
         file.writeText(json)
 
         return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -331,5 +337,7 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         const val MAX_BEAT_LOG_ENTRIES = 200
         /** Below this many beats in the rolling window, a rejection rate is too noisy to show. */
         const val MIN_BEATS_FOR_SIGNAL_QUALITY = 3
+        /** Same pattern as the backup file's — see SettingsViewModel.BACKUP_FILENAME_FORMATTER. */
+        val RAW_EXPORT_FILENAME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("ddMMyy_HHmm")
     }
 }

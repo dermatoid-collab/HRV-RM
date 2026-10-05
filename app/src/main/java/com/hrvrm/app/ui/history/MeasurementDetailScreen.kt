@@ -187,7 +187,7 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
                         OutlinedButton(
                             onClick = {
                                 scope.launch {
-                                    val uri = rawSampleStorage.exportSharedFile(current.id)
+                                    val uri = rawSampleStorage.exportSharedFile(current.id, current.timestampEpochMs)
                                     if (uri != null) {
                                         val intent = Intent(Intent.ACTION_SEND).apply {
                                             type = "application/json"

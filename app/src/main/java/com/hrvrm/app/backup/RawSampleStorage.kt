@@ -5,6 +5,9 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import com.hrvrm.app.ppg.PpgSample
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.Dispatchers
@@ -51,15 +54,26 @@ class RawSampleStorage(private val context: Context) {
      * Decompresses the stored file into the same plain-JSON share format used by the
      * Result screen's one-off export, and returns a content:// [Uri] for it (via
      * [FileProvider]) — or null if nothing was ever stored for this measurement (the
-     * setting was off at the time, or it predates this feature).
+     * setting was off at the time, or it predates this feature). The file is named after
+     * [measurementTimestampEpochMs] (the measurement's own date/time), not [measurementId],
+     * so multiple exports stay identifiable by when they were taken rather than by an
+     * opaque database row number.
      */
-    suspend fun exportSharedFile(measurementId: Long): Uri? = withContext(Dispatchers.IO) {
-        val stored = storedFile(measurementId)
-        if (!stored.exists()) return@withContext null
-        val text = GZIPInputStream(stored.inputStream()).use { it.readBytes().toString(Charsets.UTF_8) }
-        val exportsDir = File(context.cacheDir, "exports").apply { mkdirs() }
-        val file = File(exportsDir, "hrv-rm-raw-$measurementId.json")
-        file.writeText(text)
-        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    suspend fun exportSharedFile(measurementId: Long, measurementTimestampEpochMs: Long): Uri? =
+        withContext(Dispatchers.IO) {
+            val stored = storedFile(measurementId)
+            if (!stored.exists()) return@withContext null
+            val text = GZIPInputStream(stored.inputStream()).use { it.readBytes().toString(Charsets.UTF_8) }
+            val exportsDir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val timestamp = Instant.ofEpochMilli(measurementTimestampEpochMs)
+                .atZone(ZoneId.systemDefault())
+                .format(RAW_EXPORT_FILENAME_FORMATTER)
+            val file = File(exportsDir, "hrv-rm-raw_$timestamp.json")
+            file.writeText(text)
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        }
+
+    private companion object {
+        val RAW_EXPORT_FILENAME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("ddMMyy_HHmm")
     }
 }

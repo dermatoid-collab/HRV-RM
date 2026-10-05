@@ -704,11 +704,11 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(
-        modifier = Modifier.size(230.dp),
+        modifier = Modifier.size(184.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidthPx = 16.dp.toPx()
+            val strokeWidthPx = 12.8.dp.toPx()
             val diameter = size.minDimension - strokeWidthPx
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
@@ -734,24 +734,32 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(29.dp))
-            Spacer(Modifier.height(2.dp))
-            Text(
-                liveBpm?.let { "${it.roundToInt()}" } ?: "--",
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                if (liveBpm != null) "bpm" else "detecting pulse…",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(23.dp))
+                Text(
+                    liveBpm?.let { "${it.roundToInt()}" } ?: "--",
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    if (liveBpm != null) "bpm" else "detecting pulse…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(4.dp))
-            Text(
-                "${remainingSec}s left",
-                fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.8f,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "${remainingSec}s",
+                    fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.44f,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "left",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
