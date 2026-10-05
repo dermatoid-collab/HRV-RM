@@ -256,8 +256,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         HorizontalDivider()
 
+        // BUILD_NUMBER/BUILD_DATE come from CI (-PbuildNumber/-PbuildDate in
+        // build-apk.yml), matching the downloaded artifact's own "..._buildXXX_ddmmyy"
+        // filename -- "local" / today's date for an on-device Gradle build outside CI.
+        val rawBuildDate = BuildConfig.BUILD_DATE
+        val formattedBuildDate = if (rawBuildDate.length == 6) {
+            "${rawBuildDate.substring(0, 2)}/${rawBuildDate.substring(2, 4)}/${rawBuildDate.substring(4, 6)}"
+        } else {
+            rawBuildDate
+        }
         Text(
-            "Build ${BuildConfig.VERSION_CODE} (${BuildConfig.VERSION_NAME})",
+            "Build ${BuildConfig.BUILD_NUMBER} · $formattedBuildDate · v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

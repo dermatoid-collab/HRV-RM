@@ -21,11 +21,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Set build info
+        id: build_info
+        run: echo "date=$(date +%d%m%y)" >> "$GITHUB_OUTPUT"
+
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon -PbuildNumber=${{ github.run_number }} -PbuildDate=${{ steps.build_info.outputs.date }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: hrvrm-debug-apk
+          name: hrv-rm_debug_build${{ github.run_number }}_${{ steps.build_info.outputs.date }}
           path: app/build/outputs/apk/debug/*.apk

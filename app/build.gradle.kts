@@ -15,6 +15,16 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        // Passed in by CI as -PbuildNumber=<github.run_number> -PbuildDate=<ddMMyy> (see
+        // .github/workflows/build-apk.yml) so the running app can show exactly which CI
+        // build it is, matching the downloaded artifact's own "..._buildXXX_ddmmyy" name.
+        // Falls back to something sane for a local (non-CI) build.
+        val buildNumber = (project.findProperty("buildNumber") as String?) ?: "local"
+        val buildDate = (project.findProperty("buildDate") as String?)
+            ?: java.text.SimpleDateFormat("ddMMyy").format(java.util.Date())
+        buildConfigField("String", "BUILD_NUMBER", "\"$buildNumber\"")
+        buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
     }
 
     signingConfigs {
