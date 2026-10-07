@@ -256,6 +256,69 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         HorizontalDivider()
 
+        Text(
+            "About",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+
+        // Every methodology this app's own calculations are built on — kept here, not just
+        // in code comments, since these are what justify the numbers this app shows as
+        // more than an arbitrary in-house formula. Each one mirrors a published method
+        // in-house (see the cited function/class for the exact formula) rather than
+        // reproducing any vendor's proprietary algorithm.
+        Text(
+            "Data sources & references",
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "• Heart rate signal: rear camera + flash photoplethysmography (PPG), red " +
+                    "channel — Kumar et al.; iPhysioMeter validation work.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Beat detection: Elgendi et al. (2013), \"Systolic Peak Detection in " +
+                    "Acceleration Photoplethysmograms Measured from Emergency Responders in " +
+                    "Tropical Conditions\", PLoS ONE 8(10): e76585.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Artifact correction informed by Lipponen & Tarvainen (2019), \"A robust " +
+                    "algorithm for heart rate variability time series artefact correction " +
+                    "using novel beat classification\", J Med Eng Technol; and Altini, M., " +
+                    "published writing on PPG artifact removal.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• HRV score, baseline and normal range: mirrors Altini, M., \"Daily score, " +
+                    "baseline and normal range: an overview\" (HRV4Training methodology).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Stress Index: Baevsky & Chernikova — standard cardiovascular/space-" +
+                    "medicine formula (SI = AMo / (2 × Mo × MxDMn)).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Poincaré SD1/SD2, SDNN, RMSSD, pNN50: standard time-domain/nonlinear HRV " +
+                    "analysis.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Syncs with Intervals.icu (intervals.icu) when configured above.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         // BUILD_NUMBER/BUILD_DATE come from CI (-PbuildNumber/-PbuildDate in
         // build-apk.yml), matching the downloaded artifact's own "..._buildXXX_ddmmyy"
         // filename -- "local" / today's date for an on-device Gradle build outside CI.
@@ -266,7 +329,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             rawBuildDate
         }
         Text(
-            "Build ${BuildConfig.BUILD_NUMBER} · $formattedBuildDate · v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            "Build #${BuildConfig.BUILD_NUMBER} · $formattedBuildDate · v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ©RM",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
