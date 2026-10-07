@@ -704,11 +704,11 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(
-        modifier = Modifier.size(184.dp),
+        modifier = Modifier.size(220.8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidthPx = 12.8.dp.toPx()
+            val strokeWidthPx = 15.36.dp.toPx()
             val diameter = size.minDimension - strokeWidthPx
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
@@ -735,15 +735,15 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(23.dp))
+                Icon(Icons.Filled.Favorite, contentDescription = null, tint = progressColor, modifier = Modifier.size(27.6.dp))
                 Text(
                     liveBpm?.let { "${it.roundToInt()}" } ?: "--",
-                    fontSize = 38.sp,
+                    fontSize = 45.6.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     if (liveBpm != null) "bpm" else "detecting pulse…",
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 14.4.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -751,12 +751,12 @@ private fun MeasuringRing(remainingSec: Int, totalSec: Int, liveBpm: Double?) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     "${remainingSec}s",
-                    fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.44f,
+                    fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.728f,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     "left",
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 14.4.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
