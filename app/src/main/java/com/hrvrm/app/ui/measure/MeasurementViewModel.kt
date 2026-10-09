@@ -51,7 +51,7 @@ data class Trend7d(val deltaAltiniScale: Double, val deltaPercent: Double, val d
 data class TodayDashboard(val latest: MeasurementEntity?, val trend: Trend7d?)
 
 /**
- * Compares today's smoothed reading ([DailyHrvPoint.altiniScaleValue] is already the
+ * Compares today's smoothed reading ([DailyHrvPoint.baselineAltiniScaleValue] -- the
  * 7-reading rolling average, see HrvScoreCalculator) to the closest reading on or before 7
  * calendar days ago. Null if there's nothing that far back yet. +-2% counts as "Stable" --
  * day-to-day noise in an already-smoothed value shouldn't read as a real change.
@@ -61,9 +61,9 @@ private fun computeTrend7d(daily: List<DailyHrvPoint>): Trend7d? {
     val current = daily.last()
     val targetDate = current.date.minusDays(7)
     val past = daily.lastOrNull { it.date <= targetDate } ?: return null
-    if (past.altiniScaleValue == 0.0) return null
-    val delta = current.altiniScaleValue - past.altiniScaleValue
-    val deltaPercent = delta / past.altiniScaleValue * 100.0
+    if (past.baselineAltiniScaleValue == 0.0) return null
+    val delta = current.baselineAltiniScaleValue - past.baselineAltiniScaleValue
+    val deltaPercent = delta / past.baselineAltiniScaleValue * 100.0
     val direction = when {
         abs(deltaPercent) < 2.0 -> TrendDirection.STABLE
         deltaPercent > 0 -> TrendDirection.RISING

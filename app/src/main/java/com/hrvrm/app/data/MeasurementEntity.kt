@@ -38,8 +38,10 @@ data class MeasurementEntity(
     val hrvScore: Int?,
     /** Null while building baseline; true/false once ready — see HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER. */
     val withinNormalRange: Boolean?,
-    /** Smoothed value on an HRV4Training-like ln(RMSSD^2) display scale (~6-10 for typical adults). */
+    /** Today's own reading (unsmoothed) on an HRV4Training-like ln(RMSSD^2) display scale (~6-10 for typical adults). */
     val altiniScaleValue: Double,
+    /** Smoothed 7-reading rolling average on the same scale — Altini's "baseline". Backfilled for rows saved before this field existed — see MeasurementRepository.backfillHrvScoresIfNeeded. */
+    val baselineAltiniScaleValue: Double = 0.0,
     val normalRangeLowAltiniScale: Double?,
     val normalRangeHighAltiniScale: Double?,
     /** Clean IBI series (ms), JSON-encoded, kept for history detail / future re-analysis. */

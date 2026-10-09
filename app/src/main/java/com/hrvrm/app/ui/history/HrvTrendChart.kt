@@ -56,6 +56,7 @@ import kotlin.math.roundToInt
 data class DailyHrvPoint(
     val date: LocalDate,
     val altiniScaleValue: Double,
+    val baselineAltiniScaleValue: Double,
     val hrvScore: Int?,
     val normalRangeLowAltiniScale: Double?,
     val normalRangeHighAltiniScale: Double?,
@@ -79,6 +80,7 @@ fun buildDailyPoints(measurementsNewestFirst: List<MeasurementEntity>): List<Dai
             DailyHrvPoint(
                 date = day,
                 altiniScaleValue = m.altiniScaleValue,
+                baselineAltiniScaleValue = m.baselineAltiniScaleValue,
                 hrvScore = m.hrvScore,
                 normalRangeLowAltiniScale = m.normalRangeLowAltiniScale,
                 normalRangeHighAltiniScale = m.normalRangeHighAltiniScale,

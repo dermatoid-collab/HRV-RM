@@ -57,6 +57,7 @@ class MeasurementRepository(
             hrvScore = scoreResult.score,
             withinNormalRange = scoreResult.withinNormalRange,
             altiniScaleValue = scoreResult.altiniScaleValue,
+            baselineAltiniScaleValue = scoreResult.baselineAltiniScaleValue,
             normalRangeLowAltiniScale = scoreResult.normalRangeLowAltiniScale,
             normalRangeHighAltiniScale = scoreResult.normalRangeHighAltiniScale,
             ibiSeriesJson = json.encodeToString(cleanIbiMs),
@@ -107,6 +108,41 @@ class MeasurementRepository(
         }
         dao.update(updated)
         return updated
+    }
+
+    /**
+     * One-time repair after the HrvScoreCalculator fix that stopped smoothing the daily
+     * score and split the 7-reading rolling average out into its own baseline field:
+     * recomputes every existing row's derived HRV fields (score, normal range, baseline)
+     * from its own already-stored [MeasurementEntity.rmssdMs], walking the full history in
+     * chronological order exactly like a live save would. No raw measurement is touched or
+     * dropped -- this only rewrites the derived columns so old entries read correctly under
+     * the corrected formula instead of showing a placeholder baseline. Safe to call on every
+     * app start: no-ops once already done.
+     */
+    suspend fun backfillHrvScoresIfNeeded() {
+        if (settingsStore.hrvScoreBackfillV5Done.first()) return
+
+        val chronological = dao.getAllOnce().sortedBy { it.timestampEpochMs }
+        val priorRmssd = ArrayDeque<Double>() // most-recent-first, capped at BASELINE_WINDOW_SIZE
+
+        for (m in chronological) {
+            val scoreResult = HrvScoreCalculator.compute(m.rmssdMs, priorRmssd.toList())
+            dao.update(
+                m.copy(
+                    hrvScore = scoreResult.score,
+                    withinNormalRange = scoreResult.withinNormalRange,
+                    altiniScaleValue = scoreResult.altiniScaleValue,
+                    baselineAltiniScaleValue = scoreResult.baselineAltiniScaleValue,
+                    normalRangeLowAltiniScale = scoreResult.normalRangeLowAltiniScale,
+                    normalRangeHighAltiniScale = scoreResult.normalRangeHighAltiniScale,
+                ),
+            )
+            priorRmssd.addFirst(m.rmssdMs)
+            while (priorRmssd.size > HrvScoreCalculator.BASELINE_WINDOW_SIZE) priorRmssd.removeLast()
+        }
+
+        settingsStore.setHrvScoreBackfillV5Done(true)
     }
 
     /** The full local history as a JSON [MeasurementBackup] — see that type's doc comment. */

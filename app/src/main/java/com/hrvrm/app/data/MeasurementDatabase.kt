@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [MeasurementEntity::class], version = 4, exportSchema = false)
+@Database(entities = [MeasurementEntity::class], version = 5, exportSchema = false)
 abstract class MeasurementDatabase : RoomDatabase() {
 
     abstract fun measurementDao(): MeasurementDao
@@ -37,6 +37,20 @@ abstract class MeasurementDatabase : RoomDatabase() {
             }
         }
 
+        // HrvScoreCalculator now keeps the daily score (altiniScaleValue) unsmoothed and
+        // surfaces the smoothed 7-reading rolling average as its own baseline field, matching
+        // Altini's real "daily score" + "baseline" split. Rows saved before this migration get
+        // 0.0 here as a placeholder; MeasurementRepository.backfillHrvScoresIfNeeded fills in
+        // the real value for every existing row right after this migration runs, so no history
+        // is lost or left stale.
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE measurements ADD COLUMN baselineAltiniScaleValue REAL NOT NULL DEFAULT 0.0",
+                )
+            }
+        }
+
         @Volatile
         private var instance: MeasurementDatabase? = null
 
@@ -47,7 +61,7 @@ abstract class MeasurementDatabase : RoomDatabase() {
                     MeasurementDatabase::class.java,
                     "hrv-rm.db",
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     // Safety net for any schema version this app has never actually
                     // shipped with (e.g. an old dev install pre-dating version 2).
                     .fallbackToDestructiveMigration()

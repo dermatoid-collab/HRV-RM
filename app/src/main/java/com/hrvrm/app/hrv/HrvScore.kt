@@ -16,22 +16,32 @@ data class HrvScoreResult(
     val score: Int?,
     val status: BaselineStatus,
     /**
-     * True once READY: the smoothed value falls within the narrow "normal range" band
+     * True once READY: today's own reading falls within the narrow "normal range" band
      * (+-0.5 SD, the sports-science "smallest worthwhile change"). This is the signal
      * that should drive any train/rest guidance — a single day outside it is noise,
      * several days in a row outside it means something real changed.
      */
     val withinNormalRange: Boolean?,
-    /** 7-reading rolling average of ln(RMSSD), including today — the value actually compared to baseline. */
-    val smoothedLnRmssd: Double,
+    /** Today's own single-measurement ln(RMSSD) — unsmoothed, Altini's "daily score". */
+    val lnRmssdToday: Double,
     /**
-     * [smoothedLnRmssd] on an HRV4Training-like display scale (roughly 6-10 for typical
+     * [lnRmssdToday] on an HRV4Training-like display scale (roughly 6-10 for typical
      * adults, instead of ~3-5 for plain ln(RMSSD)) — confirmed against the real app's own
      * displayed numbers, which sit around 9. HRV4Training shows ln(RMSSD^2), i.e. 2x
      * ln(RMSSD) — a z-score is unaffected by this constant factor, it only changes how
-     * the number reads on screen.
+     * the number reads on screen. This is the main "today" number the real app shows and
+     * is deliberately NOT smoothed — per Altini's own "Daily score, baseline and normal
+     * range: an overview", the daily score is today's own reading, compared against the
+     * normal range; smoothing is reserved for the separate [baselineAltiniScaleValue].
      */
     val altiniScaleValue: Double,
+    /**
+     * A separate, more stable number: the [HrvScoreCalculator.SMOOTHING_WINDOW_SIZE]-reading
+     * rolling average of ln(RMSSD), on the same display scale. Altini calls this the
+     * "baseline" — "simply a more stable version of your daily score" — and shows it as its
+     * own line alongside the daily score, never substituted for it.
+     */
+    val baselineAltiniScaleValue: Double,
     val baselineMeanLnRmssd: Double?,
     val baselineSdLnRmssd: Double?,
     /** Normal-range band bounds on the same display scale as [altiniScaleValue], for a details view. */
@@ -41,14 +51,18 @@ data class HrvScoreResult(
 
 /**
  * Mirrors HRV4Training's published methodology (Altini, "Daily score, baseline and normal
- * range: an overview") rather than a naive single-day z-score:
- *  - the value compared to baseline is a rolling average of the last [SMOOTHING_WINDOW_SIZE]
- *    readings' ln(RMSSD), not a single day's raw reading — one noisy morning shouldn't
- *    swing the result;
+ * range: an overview") rather than a naive single-day z-score against a plain historical mean:
+ *  - the primary "today" number ([HrvScoreResult.altiniScaleValue]) is today's own single
+ *    measurement, unsmoothed — Altini's "daily score", compared against the normal range;
+ *  - a separate, more stable number ([HrvScoreResult.baselineAltiniScaleValue]) is a rolling
+ *    average of the last [SMOOTHING_WINDOW_SIZE] readings — Altini's "baseline", meant to be
+ *    shown alongside the daily score, never in place of it;
  *  - "normal range" is a narrow band, +-0.5x the day-to-day SD of the last up to 60
- *    readings (the "smallest worthwhile change"), not a wide +-2.5 SD;
+ *    readings (the "smallest worthwhile change"), compared against today's own reading —
+ *    matching Altini's current "daily score vs normal range" approach (he moved away from
+ *    comparing each day only to the smoothed baseline);
  *  - the 0-100 [HrvScoreResult.score] is kept only as a continuous number for a trend
- *    line, using the same z-score scaling as before but now driven by the smoothed value;
+ *    line, using the same z-score scaling, now driven by today's own reading;
  *    [HrvScoreResult.withinNormalRange] carries the actual qualitative signal.
  *
  * Still a from-scratch, published-methodology score, not a reproduction of any vendor's
@@ -81,8 +95,10 @@ object HrvScoreCalculator {
         val lnToday = ln(todayRmssdMs.coerceAtLeast(1.0))
         val priorLn = priorRmssdMs.map { ln(it.coerceAtLeast(1.0)) }
 
+        val altiniScaleValue = lnToday * ALTINI_SCALE_FACTOR
+
         val smoothedToday = (listOf(lnToday) + priorLn.take(SMOOTHING_WINDOW_SIZE - 1)).average()
-        val altiniScaleValue = smoothedToday * ALTINI_SCALE_FACTOR
+        val baselineAltiniScaleValue = smoothedToday * ALTINI_SCALE_FACTOR
 
         val baselineLn = priorLn.take(BASELINE_WINDOW_SIZE)
         if (baselineLn.size < MIN_BASELINE_SAMPLES) {
@@ -90,8 +106,9 @@ object HrvScoreCalculator {
                 score = null,
                 status = BaselineStatus.BUILDING,
                 withinNormalRange = null,
-                smoothedLnRmssd = smoothedToday,
+                lnRmssdToday = lnToday,
                 altiniScaleValue = altiniScaleValue,
+                baselineAltiniScaleValue = baselineAltiniScaleValue,
                 baselineMeanLnRmssd = null,
                 baselineSdLnRmssd = null,
                 normalRangeLowAltiniScale = null,
@@ -103,7 +120,7 @@ object HrvScoreCalculator {
         val variance = baselineLn.sumOf { (it - mean) * (it - mean) } / (baselineLn.size - 1)
         val sd = sqrt(variance).coerceAtLeast(1e-6)
 
-        val z = (smoothedToday - mean) / sd
+        val z = (lnToday - mean) / sd
         val score = (SCORE_CENTER + z * SCORE_Z_SCALE).roundToInt().coerceIn(0, 100)
         val halfBand = NORMAL_RANGE_SD_MULTIPLIER * sd
 
@@ -111,8 +128,9 @@ object HrvScoreCalculator {
             score = score,
             status = BaselineStatus.READY,
             withinNormalRange = abs(z) <= NORMAL_RANGE_SD_MULTIPLIER,
-            smoothedLnRmssd = smoothedToday,
+            lnRmssdToday = lnToday,
             altiniScaleValue = altiniScaleValue,
+            baselineAltiniScaleValue = baselineAltiniScaleValue,
             baselineMeanLnRmssd = mean,
             baselineSdLnRmssd = sd,
             normalRangeLowAltiniScale = (mean - halfBand) * ALTINI_SCALE_FACTOR,

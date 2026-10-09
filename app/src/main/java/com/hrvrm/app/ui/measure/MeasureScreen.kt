@@ -242,6 +242,11 @@ private fun TodayDashboardContent(
                         null -> "Building baseline"
                     }
                     Text(statusText, style = MaterialTheme.typography.bodyMedium, color = withinRangeColor(latest.withinNormalRange))
+                    Text(
+                        "Baseline %.1f".format(latest.baselineAltiniScaleValue),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Box(
                     modifier = Modifier
