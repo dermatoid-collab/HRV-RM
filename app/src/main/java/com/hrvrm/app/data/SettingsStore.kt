@@ -19,7 +19,7 @@ class SettingsStore(private val context: Context) {
         val AUTO_UPLOAD = booleanPreferencesKey("auto_upload")
         val BACKUP_FOLDER_URI = stringPreferencesKey("backup_folder_uri")
         val KEEP_RAW_DATA = booleanPreferencesKey("keep_raw_data")
-        val HRV_SCORE_BACKFILL_V5_DONE = booleanPreferencesKey("hrv_score_backfill_v5_done")
+        val HRV_SCORE_BACKFILL_V6_DONE = booleanPreferencesKey("hrv_score_backfill_v6_done")
     }
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[Keys.API_KEY] }
@@ -33,7 +33,7 @@ class SettingsStore(private val context: Context) {
     val keepRawData: Flow<Boolean> = context.dataStore.data.map { it[Keys.KEEP_RAW_DATA] ?: false }
 
     /** See [com.hrvrm.app.data.MeasurementRepository.backfillHrvScoresIfNeeded]. */
-    val hrvScoreBackfillV5Done: Flow<Boolean> = context.dataStore.data.map { it[Keys.HRV_SCORE_BACKFILL_V5_DONE] ?: false }
+    val hrvScoreBackfillV6Done: Flow<Boolean> = context.dataStore.data.map { it[Keys.HRV_SCORE_BACKFILL_V6_DONE] ?: false }
 
     suspend fun setCredentials(apiKey: String, athleteId: String) {
         // Stored exactly as entered (just trimmed) — no "i" prefix guessing. ERG-RM,
@@ -59,7 +59,7 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[Keys.KEEP_RAW_DATA] = enabled }
     }
 
-    suspend fun setHrvScoreBackfillV5Done(done: Boolean) {
-        context.dataStore.edit { prefs -> prefs[Keys.HRV_SCORE_BACKFILL_V5_DONE] = done }
+    suspend fun setHrvScoreBackfillV6Done(done: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.HRV_SCORE_BACKFILL_V6_DONE] = done }
     }
 }
