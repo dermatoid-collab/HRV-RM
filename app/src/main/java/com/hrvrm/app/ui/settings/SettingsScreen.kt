@@ -5,7 +5,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.hrvrm.app.BuildConfig
 import com.hrvrm.app.ui.nav.AppResumeSignal
+import com.hrvrm.app.ui.theme.ThemeMode
+import com.hrvrm.app.ui.theme.themeSwatches
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -22,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -250,6 +259,52 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             if (state.backupFolderName != null) {
                 OutlinedButton(onClick = viewModel::forgetBackupFolder) {
                     Text("Forget folder")
+                }
+            }
+        }
+
+        HorizontalDivider()
+
+        Text(
+            "Appearance",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+
+        val themeGroups = listOf(
+            null to listOf(ThemeMode.SYSTEM, ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.HRV_RM_LEGACY),
+            "Dark palettes" to ThemeMode.entries.filter { it.dark == true && it != ThemeMode.DARK && it != ThemeMode.HRV_RM_LEGACY },
+            "Light palettes" to ThemeMode.entries.filter { it.dark == false && it != ThemeMode.LIGHT },
+        )
+        themeGroups.forEach { (title, modes) ->
+            if (title != null) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            modes.forEach { mode ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.onThemeModeChanged(mode) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = state.themeMode == mode, onClick = { viewModel.onThemeModeChanged(mode) })
+                    Text(mode.label, modifier = Modifier.weight(1f).padding(start = 4.dp))
+                    // What the palette looks like: page, bar and the two accents.
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(end = 8.dp)) {
+                        themeSwatches(mode).forEach { color ->
+                            Box(
+                                Modifier
+                                    .size(18.dp)
+                                    .background(color, CircleShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
+                            )
+                        }
+                    }
                 }
             }
         }

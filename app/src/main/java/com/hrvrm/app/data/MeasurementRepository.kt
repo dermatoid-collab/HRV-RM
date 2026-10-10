@@ -113,7 +113,7 @@ class MeasurementRepository(
     /**
      * One-time repair after an HrvScoreCalculator formula change (currently: the daily score
      * no longer smoothed, baseline split into its own field, and the normal-range SD
-     * multiplier widened from 0.5 to 0.75 -- see HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER):
+     * multiplier widened from 0.5 to 1 -- see HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER):
      * recomputes every existing row's derived HRV fields (score, normal range, baseline)
      * from its own already-stored [MeasurementEntity.rmssdMs], walking the full history in
      * chronological order exactly like a live save would. No raw measurement is touched or
@@ -123,7 +123,7 @@ class MeasurementRepository(
      * whenever the formula changes again, so this reruns for the new constants.
      */
     suspend fun backfillHrvScoresIfNeeded() {
-        if (settingsStore.hrvScoreBackfillV6Done.first()) return
+        if (settingsStore.hrvScoreBackfillV7Done.first()) return
 
         val chronological = dao.getAllOnce().sortedBy { it.timestampEpochMs }
         val priorRmssd = ArrayDeque<Double>() // most-recent-first, capped at BASELINE_WINDOW_SIZE
@@ -144,7 +144,7 @@ class MeasurementRepository(
             while (priorRmssd.size > HrvScoreCalculator.BASELINE_WINDOW_SIZE) priorRmssd.removeLast()
         }
 
-        settingsStore.setHrvScoreBackfillV6Done(true)
+        settingsStore.setHrvScoreBackfillV7Done(true)
     }
 
     /** The full local history as a JSON [MeasurementBackup] — see that type's doc comment. */

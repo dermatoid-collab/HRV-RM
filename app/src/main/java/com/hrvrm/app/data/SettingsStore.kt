@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.hrvrm.app.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -19,7 +20,8 @@ class SettingsStore(private val context: Context) {
         val AUTO_UPLOAD = booleanPreferencesKey("auto_upload")
         val BACKUP_FOLDER_URI = stringPreferencesKey("backup_folder_uri")
         val KEEP_RAW_DATA = booleanPreferencesKey("keep_raw_data")
-        val HRV_SCORE_BACKFILL_V6_DONE = booleanPreferencesKey("hrv_score_backfill_v6_done")
+        val HRV_SCORE_BACKFILL_V7_DONE = booleanPreferencesKey("hrv_score_backfill_v7_done")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[Keys.API_KEY] }
@@ -33,7 +35,12 @@ class SettingsStore(private val context: Context) {
     val keepRawData: Flow<Boolean> = context.dataStore.data.map { it[Keys.KEEP_RAW_DATA] ?: false }
 
     /** See [com.hrvrm.app.data.MeasurementRepository.backfillHrvScoresIfNeeded]. */
-    val hrvScoreBackfillV6Done: Flow<Boolean> = context.dataStore.data.map { it[Keys.HRV_SCORE_BACKFILL_V6_DONE] ?: false }
+    val hrvScoreBackfillV7Done: Flow<Boolean> = context.dataStore.data.map { it[Keys.HRV_SCORE_BACKFILL_V7_DONE] ?: false }
+
+    /** Which colour palette the app renders in — see [com.hrvrm.app.ui.theme.ThemeMode]. Defaults to the app's original look so existing installs don't change appearance until the user picks a new one. */
+    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
+        prefs[Keys.THEME_MODE]?.let { name -> runCatching { ThemeMode.valueOf(name) }.getOrNull() } ?: ThemeMode.HRV_RM_LEGACY
+    }
 
     suspend fun setCredentials(apiKey: String, athleteId: String) {
         // Stored exactly as entered (just trimmed) — no "i" prefix guessing. ERG-RM,
@@ -59,7 +66,11 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[Keys.KEEP_RAW_DATA] = enabled }
     }
 
-    suspend fun setHrvScoreBackfillV6Done(done: Boolean) {
-        context.dataStore.edit { prefs -> prefs[Keys.HRV_SCORE_BACKFILL_V6_DONE] = done }
+    suspend fun setHrvScoreBackfillV7Done(done: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.HRV_SCORE_BACKFILL_V7_DONE] = done }
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode.name }
     }
 }

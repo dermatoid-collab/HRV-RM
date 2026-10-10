@@ -16,26 +16,33 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.hrvrm.app.ui.nav.AppNavHost
 import com.hrvrm.app.ui.nav.AppResumeSignal
 import com.hrvrm.app.ui.theme.HrvRmTheme
+import com.hrvrm.app.ui.theme.ThemeMode
 
 class MainActivity : ComponentActivity() {
+
+    private val container get() = (application as HrvRmApp).container
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The app is always-dark (no light variant, see Theme.kt) but plain enableEdgeToEdge()
-        // picks status/nav bar icon color from the SYSTEM's light/dark setting, not this app's
-        // theme -- on a phone in light mode that means dark (invisible) icons on our dark bars.
+        // Transparent, auto-appearance bars: HrvRmTheme itself sets the actual light/dark icon
+        // appearance once the chosen palette is known (see its SideEffect) -- this initial call
+        // just makes the bars edge-to-edge, it doesn't decide their icon color.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         val openBackup = intent?.getBooleanExtra(EXTRA_OPEN_BACKUP, false) ?: false
         setContent {
-            HrvRmTheme {
+            val themeMode by container.settingsStore.themeMode.collectAsState(initial = ThemeMode.HRV_RM_LEGACY)
+            HrvRmTheme(mode = themeMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         RequestNotificationPermissionOnLaunch()

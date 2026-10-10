@@ -17,7 +17,7 @@ data class HrvScoreResult(
     val status: BaselineStatus,
     /**
      * True once READY: today's own reading falls within the "normal range" band
-     * (+-0.75 SD, the sports-science "smallest worthwhile change"). This is the signal
+     * (+-1 SD, the sports-science "smallest worthwhile change"). This is the signal
      * that should drive any train/rest guidance — a single day outside it is noise,
      * several days in a row outside it means something real changed.
      */
@@ -57,12 +57,13 @@ data class HrvScoreResult(
  *  - a separate, more stable number ([HrvScoreResult.baselineAltiniScaleValue]) is a rolling
  *    average of the last [SMOOTHING_WINDOW_SIZE] readings — Altini's "baseline", meant to be
  *    shown alongside the daily score, never in place of it;
- *  - "normal range" is a band, +-0.75x the day-to-day SD of the last up to 60 readings
- *    (the "smallest worthwhile change" -- Altini has said the SD multiplier he uses varies,
+ *  - "normal range" is a band, +-1x the day-to-day SD of the last up to 60 readings (the
+ *    "smallest worthwhile change" -- Altini has said the SD multiplier he uses varies,
  *    citing 0.5, 0.75 or 1 depending on whether short-term acute changes or long-term
- *    baseline shifts matter more; 0.75 is the middle ground), compared against today's own
- *    reading — matching Altini's current "daily score vs normal range" approach (he moved
- *    away from comparing each day only to the smoothed baseline);
+ *    baseline shifts matter more; 1 is the widest of those, trading sensitivity to acute
+ *    changes for fewer false "outside range" flags), compared against today's own reading —
+ *    matching Altini's current "daily score vs normal range" approach (he moved away from
+ *    comparing each day only to the smoothed baseline);
  *  - the 0-100 [HrvScoreResult.score] is kept only as a continuous number for a trend
  *    line, using the same z-score scaling, now driven by today's own reading;
  *    [HrvScoreResult.withinNormalRange] carries the actual qualitative signal.
@@ -75,7 +76,7 @@ object HrvScoreCalculator {
     const val MIN_BASELINE_SAMPLES = 3
     const val BASELINE_WINDOW_SIZE = 60
     const val SMOOTHING_WINDOW_SIZE = 7
-    const val NORMAL_RANGE_SD_MULTIPLIER = 0.75
+    const val NORMAL_RANGE_SD_MULTIPLIER = 1.0
 
     /** score = SCORE_CENTER + z * SCORE_Z_SCALE — shared with callers that need the score-scale normal band. */
     const val SCORE_CENTER = 50

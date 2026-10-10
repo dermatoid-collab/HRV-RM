@@ -11,6 +11,7 @@ import com.hrvrm.app.HrvRmApp
 import com.hrvrm.app.backup.notifyBackupResult
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
+import com.hrvrm.app.ui.theme.ThemeMode
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -40,6 +41,7 @@ data class SettingsUiState(
      * it -- see [SettingsViewModel.confirmImport]. Importing overwrites the saved Intervals.icu
      * credentials when the backup carries them, so it isn't applied immediately on picking. */
     val pendingImportUri: Uri? = null,
+    val themeMode: ThemeMode = ThemeMode.HRV_RM_LEGACY,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -70,10 +72,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(keepRawData = enabled) }
             }
         }
+        viewModelScope.launch {
+            settingsStore.themeMode.collect { mode ->
+                _uiState.update { it.copy(themeMode = mode) }
+            }
+        }
     }
 
     fun onKeepRawDataChanged(value: Boolean) {
         viewModelScope.launch { settingsStore.setKeepRawData(value) }
+    }
+
+    fun onThemeModeChanged(mode: ThemeMode) {
+        viewModelScope.launch { settingsStore.setThemeMode(mode) }
     }
 
     /**

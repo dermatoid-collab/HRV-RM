@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.sp
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ui.theme.ChartGridLine
+import com.hrvrm.app.ui.theme.RangeAbove
+import com.hrvrm.app.ui.theme.RangeBelow
+import com.hrvrm.app.ui.theme.RangeWithin
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -278,8 +281,6 @@ private fun TrendCanvas(
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridLineColor = ChartGridLine
     val bandColor = MaterialTheme.colorScheme.secondary
-    val okColor = MaterialTheme.colorScheme.secondary
-    val outColor = MaterialTheme.colorScheme.error
     val buildingColor = MaterialTheme.colorScheme.onSurfaceVariant
     val selectionColor = MaterialTheme.colorScheme.primary
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -440,8 +441,9 @@ private fun TrendCanvas(
 
         // status markers, thinned out so dense windows don't smear into a blob. Per spec,
         // every point is the same 10dp-diameter dot with a 2dp outline -- only the fill color
-        // (teal/pink) encodes within/outside range; "building baseline" keeps its own open-
-        // ring treatment since the spec doesn't cover that third state.
+        // (fixed green/orange/red, see RangeWithin/Above/Below -- never themed, so a reading's
+        // clinical status reads the same under every palette) encodes within/above/below
+        // range; "building baseline" keeps its own open-ring treatment for that fourth state.
         val visibleCount = (i1 - i0 + 1).coerceAtLeast(1)
         val markerEveryN = (visibleCount / 60).coerceAtLeast(1)
         val markerPx = 5.dp.toPx()
@@ -452,21 +454,27 @@ private fun TrendCanvas(
             val v = valueOf(p)
             if (v != null) {
                 val x = xAt(i); val y = yAt(v)
-                when (p.withinNormalRange) {
-                    true -> {
-                        drawCircle(color = okColor, radius = markerPx, center = Offset(x, y))
-                        drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
-                    }
-                    false -> {
-                        drawCircle(color = outColor, radius = markerPx, center = Offset(x, y))
-                        drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
-                    }
+                // Fixed clinical-signal colors (RangeWithin/Above/Below), never themed -- see
+                // their doc comments in Theme.kt. Above/below split uses the normal-range
+                // bounds directly rather than just p.withinNormalRange, which only says
+                // in/out, not which side.
+                val dotColor = when {
+                    p.normalRangeLowAltiniScale == null || p.normalRangeHighAltiniScale == null -> null
+                    p.altiniScaleValue > p.normalRangeHighAltiniScale -> RangeAbove
+                    p.altiniScaleValue < p.normalRangeLowAltiniScale -> RangeBelow
+                    else -> RangeWithin
+                }
+                when (dotColor) {
                     null -> drawCircle(
                         color = buildingColor,
                         radius = markerPx * 0.9f,
                         style = Stroke(width = 1.4.dp.toPx()),
                         center = Offset(x, y),
                     )
+                    else -> {
+                        drawCircle(color = dotColor, radius = markerPx, center = Offset(x, y))
+                        drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
+                    }
                 }
             }
             i += markerEveryN
