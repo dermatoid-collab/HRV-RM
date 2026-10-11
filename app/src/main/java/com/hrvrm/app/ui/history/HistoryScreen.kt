@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
@@ -26,6 +27,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,11 +44,25 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick: (Long) -> Unit) {
+fun HistoryScreen(
+    viewModel: HistoryViewModel = viewModel(),
+    onMeasurementClick: (Long) -> Unit,
+    /** Bumped by MainTabsScreen each time this tab becomes visible again after the user
+     * switched away to another tab and back -- snaps the list back to the latest measurement
+     * (the top row, since [measurements] is newest-first) instead of wherever it was left
+     * scrolled, since LazyColumn's own state otherwise survives that round trip via its
+     * default rememberSaveable behavior. */
+    resetSignal: Int = 0,
+) {
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
     val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
     val dailyRhrTrend by viewModel.dailyRhrTrend.collectAsStateWithLifecycle()
     val folderSyncState by viewModel.folderSyncState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(resetSignal) {
+        if (resetSignal > 0) listState.scrollToItem(0)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         FolderSyncHeader(folderSyncState, onSyncClick = viewModel::syncFolder)
@@ -71,6 +87,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onMeasurementClick:
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),

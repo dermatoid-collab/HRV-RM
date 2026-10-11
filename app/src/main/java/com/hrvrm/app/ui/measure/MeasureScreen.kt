@@ -105,11 +105,18 @@ fun MeasureScreen(
     viewModel: MeasurementViewModel = viewModel(),
     onMeasurementClick: (Long) -> Unit = {},
     onTrendClick: () -> Unit = {},
+    /** Bumped by MainTabsScreen each time this tab becomes visible again after the user
+     * switched away to another tab and back -- see MeasurementViewModel.resetIfShowingResult. */
+    resetSignal: Int = 0,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+
+    LaunchedEffect(resetSignal) {
+        if (resetSignal > 0) viewModel.resetIfShowingResult()
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

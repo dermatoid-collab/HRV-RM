@@ -142,6 +142,26 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
         if (resumeSignal > 0) pagerState.scrollToPage(0)
     }
 
+    // Bumped each time the Measure/History tab becomes current again after having been some
+    // other tab -- never on the very first composition (lastPage starts equal to the initial
+    // page) and never while just staying on the same tab. Lets each tab discard "I was left
+    // showing something stale" state (Measure's finished-report screen, History's scroll
+    // position) on every return trip, the same round-trip-triggered-reset shape as resumeSignal
+    // above but keyed to tab switches instead of a real app backgrounding.
+    var measureReturnSignal by remember { mutableIntStateOf(0) }
+    var historyReturnSignal by remember { mutableIntStateOf(0) }
+    var lastPage by remember { mutableIntStateOf(pagerState.currentPage) }
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != lastPage) {
+            when (destinations[pagerState.currentPage]) {
+                Destination.Measure -> measureReturnSignal++
+                Destination.History -> historyReturnSignal++
+                Destination.Settings -> {}
+            }
+            lastPage = pagerState.currentPage
+        }
+    }
+
     Scaffold(
         topBar = {
             TopTabBar(
@@ -160,8 +180,9 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
                     onTrendClick = {
                         scope.launch { pagerState.animateScrollToPage(destinations.indexOf(Destination.History)) }
                     },
+                    resetSignal = measureReturnSignal,
                 )
-                Destination.History -> HistoryScreen(onMeasurementClick = onMeasurementClick)
+                Destination.History -> HistoryScreen(onMeasurementClick = onMeasurementClick, resetSignal = historyReturnSignal)
                 Destination.Settings -> SettingsScreen()
             }
         }

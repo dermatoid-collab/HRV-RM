@@ -231,6 +231,19 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.value = MeasureUiState.Idle
     }
 
+    /**
+     * Called when the Measure tab becomes visible again after the user switched away to
+     * another tab and back -- see [MeasureScreen]'s resetSignal. Only resets a finished
+     * measurement's report back to the idle/home screen; never interrupts an in-progress
+     * [MeasureUiState.Stabilizing]/[MeasureUiState.Measuring]/[MeasureUiState.Processing]
+     * reading, which should keep running regardless of which tab is currently shown.
+     */
+    fun resetIfShowingResult() {
+        if (_uiState.value is MeasureUiState.Result) {
+            _uiState.value = MeasureUiState.Idle
+        }
+    }
+
     fun retryUpload() {
         viewModelScope.launch {
             val current = _uiState.value
