@@ -4,9 +4,14 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.hrvrm.app.ui.theme.AutoThemeMode
 import com.hrvrm.app.ui.theme.ThemeMode
+import com.hrvrm.app.ui.theme.randomThemeMode
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -22,6 +27,12 @@ class SettingsStore(private val context: Context) {
         val KEEP_RAW_DATA = booleanPreferencesKey("keep_raw_data")
         val HRV_SCORE_BACKFILL_V7_DONE = booleanPreferencesKey("hrv_score_backfill_v7_done")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val AUTO_THEME_MODE = stringPreferencesKey("auto_theme_mode")
+        /** Last calendar day (yyyy-MM-dd, device-local) a DAILY auto-theme roll happened — see [rollDailyThemeIfDue]. */
+        val AUTO_THEME_LAST_DAY = stringPreferencesKey("auto_theme_last_day")
+        val MEASUREMENT_REMINDER_ENABLED = booleanPreferencesKey("measurement_reminder_enabled")
+        val MEASUREMENT_REMINDER_HOUR = intPreferencesKey("measurement_reminder_hour")
+        val MEASUREMENT_REMINDER_MINUTE = intPreferencesKey("measurement_reminder_minute")
     }
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[Keys.API_KEY] }
@@ -41,6 +52,16 @@ class SettingsStore(private val context: Context) {
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         prefs[Keys.THEME_MODE]?.let { name -> runCatching { ThemeMode.valueOf(name) }.getOrNull() } ?: ThemeMode.HRV_RM_LEGACY
     }
+
+    /** Off by default -- manual palette selection (above) keeps working exactly as before until the user turns this on. */
+    val autoThemeMode: Flow<AutoThemeMode> = context.dataStore.data.map { prefs ->
+        prefs[Keys.AUTO_THEME_MODE]?.let { name -> runCatching { AutoThemeMode.valueOf(name) }.getOrNull() } ?: AutoThemeMode.OFF
+    }
+
+    /** On by default (05:00) -- see [com.hrvrm.app.reminder.MeasurementReminderWorker]. */
+    val measurementReminderEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.MEASUREMENT_REMINDER_ENABLED] ?: true }
+    val measurementReminderHour: Flow<Int> = context.dataStore.data.map { it[Keys.MEASUREMENT_REMINDER_HOUR] ?: 5 }
+    val measurementReminderMinute: Flow<Int> = context.dataStore.data.map { it[Keys.MEASUREMENT_REMINDER_MINUTE] ?: 0 }
 
     suspend fun setCredentials(apiKey: String, athleteId: String) {
         // Stored exactly as entered (just trimmed) — no "i" prefix guessing. ERG-RM,
@@ -72,5 +93,46 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode.name }
+    }
+
+    suspend fun setAutoThemeMode(mode: AutoThemeMode) {
+        context.dataStore.edit { prefs -> prefs[Keys.AUTO_THEME_MODE] = mode.name }
+    }
+
+    /**
+     * Rolls a new random palette once per calendar day when [autoThemeMode] is
+     * [AutoThemeMode.DAILY] -- a no-op the rest of the day, and whenever auto-theme is off or
+     * set to roll per-measurement instead. Call on every app start (see HrvRmApp); cheap when
+     * it's not due since it only reads preferences.
+     */
+    suspend fun rollDailyThemeIfDue() {
+        if (autoThemeMode.first() != AutoThemeMode.DAILY) return
+        val today = LocalDate.now().toString()
+        if (context.dataStore.data.first()[Keys.AUTO_THEME_LAST_DAY] == today) return
+        val next = randomThemeMode(themeMode.first())
+        context.dataStore.edit { prefs ->
+            prefs[Keys.THEME_MODE] = next.name
+            prefs[Keys.AUTO_THEME_LAST_DAY] = today
+        }
+    }
+
+    /**
+     * Rolls a new random palette when [autoThemeMode] is [AutoThemeMode.PER_MEASUREMENT] -- a
+     * no-op otherwise. Call right after a measurement is saved (see MeasurementRepository).
+     */
+    suspend fun rollThemeAfterMeasurement() {
+        if (autoThemeMode.first() != AutoThemeMode.PER_MEASUREMENT) return
+        setThemeMode(randomThemeMode(themeMode.first()))
+    }
+
+    suspend fun setMeasurementReminderEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.MEASUREMENT_REMINDER_ENABLED] = enabled }
+    }
+
+    suspend fun setMeasurementReminderTime(hour: Int, minute: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.MEASUREMENT_REMINDER_HOUR] = hour
+            prefs[Keys.MEASUREMENT_REMINDER_MINUTE] = minute
+        }
     }
 }

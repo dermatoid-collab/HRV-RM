@@ -43,6 +43,27 @@ enum class ThemeMode(val label: String, val dark: Boolean? = null) {
     GRUVBOX_LIGHT("Gruvbox Light", false),
 }
 
+/** Whether [ThemeMode] is picked by hand (see Settings' palette list) or rotates on its own. */
+enum class AutoThemeMode(val label: String) {
+    OFF("Off"),
+    DAILY("Every day"),
+    PER_MEASUREMENT("After each measurement"),
+}
+
+/**
+ * Named looks eligible for [AutoThemeMode]'s random rotation -- excludes SYSTEM/LIGHT/DARK,
+ * which are generic fallbacks that follow the phone rather than a distinct look of their own.
+ */
+val AutoThemePalettes: List<ThemeMode> = ThemeMode.entries.filterNot {
+    it == ThemeMode.SYSTEM || it == ThemeMode.LIGHT || it == ThemeMode.DARK
+}
+
+/** A random pick from [AutoThemePalettes], never [current] again when more than one choice exists. */
+fun randomThemeMode(current: ThemeMode): ThemeMode {
+    val choices = AutoThemePalettes.filter { it != current }.ifEmpty { AutoThemePalettes }
+    return choices.random()
+}
+
 // HRV-RM Legacy palette: this app's original always-dark look (no light variant), kept exactly
 // as-is as one selectable ThemeMode rather than folded into the generic Palette machinery below
 // -- it predates that machinery and has its own role mapping (e.g. error mirrors primary) that

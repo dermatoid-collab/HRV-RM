@@ -66,6 +66,8 @@ class MeasurementRepository(
         val id = dao.insert(entity)
         var saved = entity.copy(id = id)
 
+        settingsStore.rollThemeAfterMeasurement()
+
         if (settingsStore.autoUpload.first()) {
             saved = uploadMeasurement(saved)
         }

@@ -11,6 +11,8 @@ import com.hrvrm.app.HrvRmApp
 import com.hrvrm.app.backup.notifyBackupResult
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
+import com.hrvrm.app.reminder.MeasurementReminderWorker
+import com.hrvrm.app.ui.theme.AutoThemeMode
 import com.hrvrm.app.ui.theme.ThemeMode
 import java.io.File
 import java.time.LocalDateTime
@@ -42,6 +44,10 @@ data class SettingsUiState(
      * credentials when the backup carries them, so it isn't applied immediately on picking. */
     val pendingImportUri: Uri? = null,
     val themeMode: ThemeMode = ThemeMode.HRV_RM_LEGACY,
+    val autoThemeMode: AutoThemeMode = AutoThemeMode.OFF,
+    val measurementReminderEnabled: Boolean = true,
+    val measurementReminderHour: Int = 5,
+    val measurementReminderMinute: Int = 0,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -77,6 +83,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(themeMode = mode) }
             }
         }
+        viewModelScope.launch {
+            settingsStore.autoThemeMode.collect { mode ->
+                _uiState.update { it.copy(autoThemeMode = mode) }
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                settingsStore.measurementReminderEnabled,
+                settingsStore.measurementReminderHour,
+                settingsStore.measurementReminderMinute,
+            ) { enabled, hour, minute -> Triple(enabled, hour, minute) }
+                .collect { (enabled, hour, minute) ->
+                    _uiState.update {
+                        it.copy(measurementReminderEnabled = enabled, measurementReminderHour = hour, measurementReminderMinute = minute)
+                    }
+                }
+        }
     }
 
     fun onKeepRawDataChanged(value: Boolean) {
@@ -85,6 +108,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun onThemeModeChanged(mode: ThemeMode) {
         viewModelScope.launch { settingsStore.setThemeMode(mode) }
+    }
+
+    fun onAutoThemeModeChanged(mode: AutoThemeMode) {
+        viewModelScope.launch { settingsStore.setAutoThemeMode(mode) }
+    }
+
+    fun onMeasurementReminderEnabledChanged(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsStore.setMeasurementReminderEnabled(enabled)
+            val state = _uiState.value
+            MeasurementReminderWorker.reschedule(
+                getApplication<Application>(),
+                enabled = enabled,
+                hour = state.measurementReminderHour,
+                minute = state.measurementReminderMinute,
+            )
+        }
+    }
+
+    fun onMeasurementReminderTimeChanged(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            settingsStore.setMeasurementReminderTime(hour, minute)
+            MeasurementReminderWorker.reschedule(getApplication<Application>(), enabled = _uiState.value.measurementReminderEnabled, hour = hour, minute = minute)
+        }
     }
 
     /**

@@ -1,10 +1,13 @@
 package com.hrvrm.app.ui.settings
 
+import android.app.TimePickerDialog
 import android.content.Intent
+import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.hrvrm.app.BuildConfig
 import com.hrvrm.app.ui.nav.AppResumeSignal
+import com.hrvrm.app.ui.theme.AutoThemeMode
 import com.hrvrm.app.ui.theme.ThemeMode
 import com.hrvrm.app.ui.theme.themeSwatches
 import androidx.compose.foundation.background
@@ -35,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
@@ -158,6 +162,44 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         HorizontalDivider()
 
         Text(
+            "Reminder",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Daily reminder", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "A nudge to take today's measurement.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = state.measurementReminderEnabled, onCheckedChange = viewModel::onMeasurementReminderEnabledChanged)
+        }
+
+        if (state.measurementReminderEnabled) {
+            OutlinedButton(
+                onClick = {
+                    TimePickerDialog(
+                        context,
+                        { _, hour, minute -> viewModel.onMeasurementReminderTimeChanged(hour, minute) },
+                        state.measurementReminderHour,
+                        state.measurementReminderMinute,
+                        DateFormat.is24HourFormat(context),
+                    ).show()
+                },
+            ) {
+                Text("Reminder time: %02d:%02d".format(state.measurementReminderHour, state.measurementReminderMinute))
+            }
+        }
+
+        HorizontalDivider()
+
+        Text(
             "Backup",
             fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
             fontWeight = FontWeight.Bold,
@@ -271,38 +313,76 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             fontWeight = FontWeight.Bold,
         )
 
+        Text(
+            "Auto theme",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        AutoThemeMode.entries.forEach { mode ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.onAutoThemeModeChanged(mode) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = state.autoThemeMode == mode, onClick = { viewModel.onAutoThemeModeChanged(mode) })
+                Text(mode.label, modifier = Modifier.weight(1f).padding(start = 4.dp))
+            }
+        }
+
+        val paletteListEnabled = state.autoThemeMode == AutoThemeMode.OFF
+        if (!paletteListEnabled) {
+            Text(
+                "Picking a palette automatically — turn Auto theme off to choose one yourself.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         val themeGroups = listOf(
             null to listOf(ThemeMode.SYSTEM, ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.HRV_RM_LEGACY),
             "Dark palettes" to ThemeMode.entries.filter { it.dark == true && it != ThemeMode.DARK && it != ThemeMode.HRV_RM_LEGACY },
             "Light palettes" to ThemeMode.entries.filter { it.dark == false && it != ThemeMode.LIGHT },
         )
-        themeGroups.forEach { (title, modes) ->
-            if (title != null) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            modes.forEach { mode ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.onThemeModeChanged(mode) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(selected = state.themeMode == mode, onClick = { viewModel.onThemeModeChanged(mode) })
-                    Text(mode.label, modifier = Modifier.weight(1f).padding(start = 4.dp))
-                    // What the palette looks like: page, bar and the two accents.
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(end = 8.dp)) {
-                        themeSwatches(mode).forEach { color ->
-                            Box(
-                                Modifier
-                                    .size(18.dp)
-                                    .background(color, CircleShape)
-                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
-                            )
+        Column(modifier = Modifier.alpha(if (paletteListEnabled) 1f else 0.4f)) {
+            themeGroups.forEach { (title, modes) ->
+                if (title != null) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                modes.forEach { mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (paletteListEnabled) {
+                                    Modifier.clickable { viewModel.onThemeModeChanged(mode) }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = state.themeMode == mode,
+                            onClick = { viewModel.onThemeModeChanged(mode) },
+                            enabled = paletteListEnabled,
+                        )
+                        Text(mode.label, modifier = Modifier.weight(1f).padding(start = 4.dp))
+                        // What the palette looks like: page, bar and the two accents.
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(end = 8.dp)) {
+                            themeSwatches(mode).forEach { color ->
+                                Box(
+                                    Modifier
+                                        .size(18.dp)
+                                        .background(color, CircleShape)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
+                                )
+                            }
                         }
                     }
                 }

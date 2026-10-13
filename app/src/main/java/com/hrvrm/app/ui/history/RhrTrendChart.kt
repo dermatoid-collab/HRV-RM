@@ -339,24 +339,13 @@ private fun RhrCanvas(
             drawPath(bandPath, color = bandColor.copy(alpha = 0.16f))
         }
 
-        // area fill + line
+        // line (no area fill under it -- just the band fill above handles shading on this chart)
         val linePath = Path()
-        val areaPath = Path()
         for (i in i0..i1) {
             val x = xAt(i)
             val y = yAt(points[i].meanHrBpm)
-            if (i == i0) {
-                linePath.moveTo(x, y)
-                areaPath.moveTo(x, plotBottom)
-                areaPath.lineTo(x, y)
-            } else {
-                linePath.lineTo(x, y)
-                areaPath.lineTo(x, y)
-            }
+            if (i == i0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
         }
-        areaPath.lineTo(xAt(i1), plotBottom)
-        areaPath.close()
-        drawPath(areaPath, color = lineColor.copy(alpha = 0.16f))
         drawPath(
             linePath,
             color = lineColor,
