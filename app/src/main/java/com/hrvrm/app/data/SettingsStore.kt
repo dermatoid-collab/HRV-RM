@@ -25,7 +25,7 @@ class SettingsStore(private val context: Context) {
         val AUTO_UPLOAD = booleanPreferencesKey("auto_upload")
         val BACKUP_FOLDER_URI = stringPreferencesKey("backup_folder_uri")
         val KEEP_RAW_DATA = booleanPreferencesKey("keep_raw_data")
-        val HRV_SCORE_BACKFILL_V7_DONE = booleanPreferencesKey("hrv_score_backfill_v7_done")
+        val HRV_SCORE_BACKFILL_V8_DONE = booleanPreferencesKey("hrv_score_backfill_v8_done")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val AUTO_THEME_MODE = stringPreferencesKey("auto_theme_mode")
         /** Last calendar day (yyyy-MM-dd, device-local) a DAILY auto-theme roll happened — see [rollDailyThemeIfDue]. */
@@ -46,7 +46,7 @@ class SettingsStore(private val context: Context) {
     val keepRawData: Flow<Boolean> = context.dataStore.data.map { it[Keys.KEEP_RAW_DATA] ?: false }
 
     /** See [com.hrvrm.app.data.MeasurementRepository.backfillHrvScoresIfNeeded]. */
-    val hrvScoreBackfillV7Done: Flow<Boolean> = context.dataStore.data.map { it[Keys.HRV_SCORE_BACKFILL_V7_DONE] ?: false }
+    val hrvScoreBackfillV8Done: Flow<Boolean> = context.dataStore.data.map { it[Keys.HRV_SCORE_BACKFILL_V8_DONE] ?: false }
 
     /** Which colour palette the app renders in — see [com.hrvrm.app.ui.theme.ThemeMode]. Defaults to the app's original look so existing installs don't change appearance until the user picks a new one. */
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
@@ -87,8 +87,8 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[Keys.KEEP_RAW_DATA] = enabled }
     }
 
-    suspend fun setHrvScoreBackfillV7Done(done: Boolean) {
-        context.dataStore.edit { prefs -> prefs[Keys.HRV_SCORE_BACKFILL_V7_DONE] = done }
+    suspend fun setHrvScoreBackfillV8Done(done: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.HRV_SCORE_BACKFILL_V8_DONE] = done }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {

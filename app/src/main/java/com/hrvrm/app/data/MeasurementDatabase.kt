@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [MeasurementEntity::class], version = 5, exportSchema = false)
+@Database(entities = [MeasurementEntity::class], version = 6, exportSchema = false)
 abstract class MeasurementDatabase : RoomDatabase() {
 
     abstract fun measurementDao(): MeasurementDao
@@ -51,6 +51,17 @@ abstract class MeasurementDatabase : RoomDatabase() {
             }
         }
 
+        // CV7 (coefficient of variation of ln(RMSSD) over the last 7 readings) -- see
+        // HrvScoreResult.cv7's doc comment. A genuinely nullable REAL column (not a 0.0
+        // placeholder like earlier migrations): backfillHrvScoresIfNeeded recomputes it for
+        // every existing row right after this migration runs, same as baselineAltiniScaleValue
+        // before it.
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE measurements ADD COLUMN cv7 REAL")
+            }
+        }
+
         @Volatile
         private var instance: MeasurementDatabase? = null
 
@@ -61,7 +72,7 @@ abstract class MeasurementDatabase : RoomDatabase() {
                     MeasurementDatabase::class.java,
                     "hrv-rm.db",
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     // Safety net for any schema version this app has never actually
                     // shipped with (e.g. an old dev install pre-dating version 2).
                     .fallbackToDestructiveMigration()

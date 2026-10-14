@@ -44,6 +44,8 @@ data class MeasurementEntity(
     val baselineAltiniScaleValue: Double = 0.0,
     val normalRangeLowAltiniScale: Double?,
     val normalRangeHighAltiniScale: Double?,
+    /** Coefficient of variation (%) of ln(RMSSD) over the last 7 readings — see HrvScoreCalculator's HrvScoreResult.cv7 doc comment. Null while that 7-reading window is still too short. */
+    val cv7: Double? = null,
     /** Clean IBI series (ms), JSON-encoded, kept for history detail / future re-analysis. */
     val ibiSeriesJson: String,
     val uploadedToIntervals: Boolean = false,

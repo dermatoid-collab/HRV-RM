@@ -236,7 +236,6 @@ private fun RhrCanvas(
     modifier: Modifier,
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val lineColor = MaterialTheme.colorScheme.tertiary
     val bandColor = MaterialTheme.colorScheme.tertiary
     val buildingColor = MaterialTheme.colorScheme.onSurfaceVariant
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -339,38 +338,40 @@ private fun RhrCanvas(
             drawPath(bandPath, color = bandColor.copy(alpha = 0.16f))
         }
 
-        // line (no area fill under it -- just the band fill above handles shading on this chart)
-        val linePath = Path()
-        for (i in i0..i1) {
-            val x = xAt(i)
-            val y = yAt(points[i].meanHrBpm)
-            if (i == i0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
-        }
-        drawPath(
-            linePath,
-            color = lineColor,
-            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
-
-        // Daily dots stay small -- this chart (unlike HrvTrendChart's thinned status markers)
-        // draws one per visible day, so the spec's 10dp point diameter would overlap into a
-        // solid blob on a 30-90 day window. Only the most recent day gets the full spec
-        // treatment (10dp, 2dp outline), the same way it's visually emphasized today. Each
-        // dot's fill color is its own day's within/above/below-range status (fixed green/
-        // orange/red, see RangeWithin/Above/Below), same as HrvTrendChart's markers -- the
-        // line and area fill stay the theme's tertiary color regardless.
-        for (i in i0..i1) {
-            val x = xAt(i)
-            val y = yAt(points[i].meanHrBpm)
-            // Fixed clinical-signal colors (RangeWithin/Above/Below), never themed -- see
-            // their doc comments in Theme.kt.
-            val band = rhrBandAt(points, i)
-            val dotColor = when {
-                band == null -> buildingColor
+        // Fixed clinical-signal colors (RangeWithin/Above/Below), never themed -- see their
+        // doc comments in Theme.kt. buildingColor while that day's own trailing band isn't
+        // ready yet. Shared by both the trend line and the dots below so they always agree.
+        fun statusColor(i: Int): Color {
+            val band = rhrBandAt(points, i) ?: return buildingColor
+            return when {
                 points[i].meanHrBpm > band.endInclusive -> RangeAbove
                 points[i].meanHrBpm < band.start -> RangeBelow
                 else -> RangeWithin
             }
+        }
+
+        // line (no area fill under it -- just the band fill above handles shading on this
+        // chart), colored per segment by its starting day's status so it matches the dots.
+        for (i in i0 until i1) {
+            val x1 = xAt(i); val y1 = yAt(points[i].meanHrBpm)
+            val x2 = xAt(i + 1); val y2 = yAt(points[i + 1].meanHrBpm)
+            drawLine(
+                color = statusColor(i),
+                start = Offset(x1, y1),
+                end = Offset(x2, y2),
+                strokeWidth = 1.75.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+
+        // Daily dots stay small -- this chart (unlike HrvTrendChart's thinned status markers)
+        // draws one per visible day, so the spec's 10dp point diameter would overlap into a
+        // solid blob on a 30-90 day window. Only the most recent day gets the full spec
+        // treatment (10dp, 2dp outline), the same way it's visually emphasized today.
+        for (i in i0..i1) {
+            val x = xAt(i)
+            val y = yAt(points[i].meanHrBpm)
+            val dotColor = statusColor(i)
             if (i == i1) {
                 drawCircle(color = dotColor, radius = 5.dp.toPx(), center = Offset(x, y))
                 drawCircle(color = surfaceColor, radius = 5.dp.toPx(), center = Offset(x, y), style = Stroke(width = 2.dp.toPx()))

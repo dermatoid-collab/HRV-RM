@@ -64,6 +64,7 @@ data class DailyHrvPoint(
     val normalRangeLowAltiniScale: Double?,
     val normalRangeHighAltiniScale: Double?,
     val withinNormalRange: Boolean?,
+    val cv7: Double?,
 )
 
 /**
@@ -88,11 +89,12 @@ fun buildDailyPoints(measurementsNewestFirst: List<MeasurementEntity>): List<Dai
                 normalRangeLowAltiniScale = m.normalRangeLowAltiniScale,
                 normalRangeHighAltiniScale = m.normalRangeHighAltiniScale,
                 withinNormalRange = m.withinNormalRange,
+                cv7 = m.cv7,
             )
         }
 }
 
-private enum class TrendMetric { LN_SCALE, SCORE }
+private enum class TrendMetric { LN_SCALE, SCORE, CV7 }
 
 private const val MIN_WINDOW_DAYS = 4f
 private const val DEFAULT_WINDOW_DAYS = 30
@@ -133,15 +135,20 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
     var selectedRangeLabel by remember(points.size) { mutableStateOf<String?>(DEFAULT_RANGE_LABEL) }
 
     val hasScore = points.any { it.hrvScore != null }
-    val effectiveMetric = if (metric == TrendMetric.SCORE && !hasScore) TrendMetric.LN_SCALE else metric
+    val hasCv7 = points.any { it.cv7 != null }
+    val effectiveMetric = when {
+        metric == TrendMetric.SCORE && !hasScore -> TrendMetric.LN_SCALE
+        metric == TrendMetric.CV7 && !hasCv7 -> TrendMetric.LN_SCALE
+        else -> metric
+    }
 
     Column(modifier = modifier) {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (hasScore) {
-                MetricToggle(effectiveMetric, onChange = { metric = it })
+            if (hasScore || hasCv7) {
+                MetricToggle(effectiveMetric, hasScore = hasScore, hasCv7 = hasCv7, onChange = { metric = it })
             } else {
                 Text("HRV score", style = MaterialTheme.typography.labelSmall)
             }
@@ -172,10 +179,15 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
+private fun MetricToggle(metric: TrendMetric, hasScore: Boolean, hasCv7: Boolean, onChange: (TrendMetric) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(CHIP_GAP)) {
         ToggleChip("HRV score", metric == TrendMetric.LN_SCALE) { onChange(TrendMetric.LN_SCALE) }
-        ToggleChip("Score %", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
+        if (hasScore) {
+            ToggleChip("Score %", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
+        }
+        if (hasCv7) {
+            ToggleChip("CV7", metric == TrendMetric.CV7) { onChange(TrendMetric.CV7) }
+        }
     }
 }
 
@@ -239,19 +251,10 @@ private fun RangePresetButton(label: String, selected: Boolean, onClick: () -> U
 
 @Composable
 private fun SelectionReadout(point: DailyHrvPoint, metric: TrendMetric) {
-    val statusLabel = when (point.withinNormalRange) {
-        true -> "Within range"
-        false -> "Outside range"
-        null -> "Building baseline"
-    }
-    val statusColor = when (point.withinNormalRange) {
-        true -> MaterialTheme.colorScheme.secondary
-        false -> MaterialTheme.colorScheme.error
-        null -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
     val valueText = when (metric) {
         TrendMetric.LN_SCALE -> "%.1f".format(point.altiniScaleValue)
         TrendMetric.SCORE -> point.hrvScore?.toString() ?: "–"
+        TrendMetric.CV7 -> point.cv7?.let { "%.1f %%".format(it) } ?: "–"
     }
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -261,8 +264,24 @@ private fun SelectionReadout(point: DailyHrvPoint, metric: TrendMetric) {
         Text(point.date.format(dayFormatter), style = MaterialTheme.typography.bodyMedium)
         Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(valueText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(statusLabel, style = MaterialTheme.typography.bodyMedium, color = statusColor, fontWeight = FontWeight.SemiBold)
+        // "Within/outside range" is specifically about the HRV score's normal-range band --
+        // CV7 has no such threshold (see its doc comment: only meaningful against your own
+        // history), so showing that status next to a CV7 value would imply a judgement this
+        // metric doesn't make. Omitted for CV7, shown for the other two as before.
+        if (metric != TrendMetric.CV7) {
+            val statusLabel = when (point.withinNormalRange) {
+                true -> "Within range"
+                false -> "Outside range"
+                null -> "Building baseline"
+            }
+            val statusColor = when (point.withinNormalRange) {
+                true -> MaterialTheme.colorScheme.secondary
+                false -> MaterialTheme.colorScheme.error
+                null -> MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(statusLabel, style = MaterialTheme.typography.bodyMedium, color = statusColor, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -357,26 +376,47 @@ private fun TrendCanvas(
         val span = (viewEnd - viewStart).coerceAtLeast(MIN_WINDOW_DAYS)
 
         fun xAt(index: Int): Float = plotLeft + (index - viewStart) / span * (plotRight - plotLeft)
-        fun valueOf(p: DailyHrvPoint): Double? = if (metric == TrendMetric.LN_SCALE) p.altiniScaleValue else p.hrvScore?.toDouble()
+        fun valueOf(p: DailyHrvPoint): Double? = when (metric) {
+            TrendMetric.LN_SCALE -> p.altiniScaleValue
+            TrendMetric.SCORE -> p.hrvScore?.toDouble()
+            TrendMetric.CV7 -> p.cv7
+        }
 
         val i0 = viewStart.roundToInt().coerceIn(0, points.size - 1)
         val i1 = viewEnd.roundToInt().coerceIn(0, points.size - 1)
 
-        val domain = if (metric == TrendMetric.SCORE) {
-            0.0..100.0
-        } else {
-            var lo = Double.POSITIVE_INFINITY
-            var hi = Double.NEGATIVE_INFINITY
-            for (i in i0..i1) {
-                val p = points[i]
-                lo = minOf(lo, p.altiniScaleValue, p.normalRangeLowAltiniScale ?: p.altiniScaleValue)
-                hi = maxOf(hi, p.altiniScaleValue, p.normalRangeHighAltiniScale ?: p.altiniScaleValue)
+        val domain = when (metric) {
+            TrendMetric.SCORE -> 0.0..100.0
+            TrendMetric.CV7 -> {
+                var lo = Double.POSITIVE_INFINITY
+                var hi = Double.NEGATIVE_INFINITY
+                for (i in i0..i1) {
+                    val v = points[i].cv7 ?: continue
+                    lo = minOf(lo, v)
+                    hi = maxOf(hi, v)
+                }
+                if (!lo.isFinite() || !hi.isFinite() || lo == hi) {
+                    val v = points[i0].cv7 ?: 0.0
+                    (v - 1.0)..(v + 1.0)
+                } else {
+                    val pad = (hi - lo) * 0.18
+                    (lo - pad)..(hi + pad)
+                }
             }
-            if (!lo.isFinite() || !hi.isFinite() || lo == hi) {
-                (points[i0].altiniScaleValue - 1.0)..(points[i0].altiniScaleValue + 1.0)
-            } else {
-                val pad = (hi - lo) * 0.18
-                (lo - pad)..(hi + pad)
+            TrendMetric.LN_SCALE -> {
+                var lo = Double.POSITIVE_INFINITY
+                var hi = Double.NEGATIVE_INFINITY
+                for (i in i0..i1) {
+                    val p = points[i]
+                    lo = minOf(lo, p.altiniScaleValue, p.normalRangeLowAltiniScale ?: p.altiniScaleValue)
+                    hi = maxOf(hi, p.altiniScaleValue, p.normalRangeHighAltiniScale ?: p.altiniScaleValue)
+                }
+                if (!lo.isFinite() || !hi.isFinite() || lo == hi) {
+                    (points[i0].altiniScaleValue - 1.0)..(points[i0].altiniScaleValue + 1.0)
+                } else {
+                    val pad = (hi - lo) * 0.18
+                    (lo - pad)..(hi + pad)
+                }
             }
         }
 
@@ -399,54 +439,94 @@ private fun TrendCanvas(
             drawText(layout, topLeft = Offset(0f, y - layout.size.height / 2f))
         }
 
-        // normal-range band
-        if (metric == TrendMetric.SCORE) {
-            val half = HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER * HrvScoreCalculator.SCORE_Z_SCALE
-            val top = yAt(HrvScoreCalculator.SCORE_CENTER + half)
-            val bottom = yAt(HrvScoreCalculator.SCORE_CENTER - half)
-            drawRect(
-                color = bandColor.copy(alpha = 0.16f),
-                topLeft = Offset(plotLeft, top),
-                size = Size(plotRight - plotLeft, bottom - top),
+        // normal-range band -- CV7 has none (no universal threshold, see its doc comment),
+        // so it's the one metric here with no band at all.
+        when (metric) {
+            TrendMetric.SCORE -> {
+                val half = HrvScoreCalculator.NORMAL_RANGE_SD_MULTIPLIER * HrvScoreCalculator.SCORE_Z_SCALE
+                val top = yAt(HrvScoreCalculator.SCORE_CENTER + half)
+                val bottom = yAt(HrvScoreCalculator.SCORE_CENTER - half)
+                drawRect(
+                    color = bandColor.copy(alpha = 0.16f),
+                    topLeft = Offset(plotLeft, top),
+                    size = Size(plotRight - plotLeft, bottom - top),
+                )
+            }
+            TrendMetric.LN_SCALE -> {
+                val bandPath = Path()
+                var started = false
+                for (i in i0..i1) {
+                    val high = points[i].normalRangeHighAltiniScale ?: continue
+                    val x = xAt(i); val y = yAt(high)
+                    if (!started) { bandPath.moveTo(x, y); started = true } else bandPath.lineTo(x, y)
+                }
+                for (i in i1 downTo i0) {
+                    val low = points[i].normalRangeLowAltiniScale ?: continue
+                    bandPath.lineTo(xAt(i), yAt(low))
+                }
+                bandPath.close()
+                drawPath(bandPath, color = bandColor.copy(alpha = 0.16f))
+            }
+            TrendMetric.CV7 -> {}
+        }
+
+        // Fixed clinical-signal colors (RangeWithin/Above/Below), never themed -- see their
+        // doc comments in Theme.kt. Above/below split uses the normal-range bounds directly
+        // rather than just p.withinNormalRange, which only says in/out, not which side. Null
+        // (building baseline) for a point with no band yet. Shared by both the trend line and
+        // the status markers below so they always agree.
+        fun statusColor(p: DailyHrvPoint): Color? = when {
+            p.normalRangeLowAltiniScale == null || p.normalRangeHighAltiniScale == null -> null
+            p.altiniScaleValue > p.normalRangeHighAltiniScale -> RangeAbove
+            p.altiniScaleValue < p.normalRangeLowAltiniScale -> RangeBelow
+            else -> RangeWithin
+        }
+
+        // trend line -- colored per segment by its starting point's status (LN_SCALE/SCORE
+        // only; CV7 has no such banding, see its doc comment, so it stays a single neutral
+        // color). A "building baseline" segment falls back to buildingColor.
+        if (metric == TrendMetric.CV7) {
+            val linePath = Path()
+            var lineStarted = false
+            for (i in i0..i1) {
+                val v = valueOf(points[i]) ?: continue
+                val x = xAt(i); val y = yAt(v)
+                if (!lineStarted) { linePath.moveTo(x, y); lineStarted = true } else linePath.lineTo(x, y)
+            }
+            drawPath(
+                linePath,
+                color = lineColor.copy(alpha = 0.9f),
+                style = Stroke(width = 1.75.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
         } else {
-            val bandPath = Path()
-            var started = false
+            var hasPrev = false
+            var prevIndex = i0
+            var prevX = 0f
+            var prevY = 0f
             for (i in i0..i1) {
-                val high = points[i].normalRangeHighAltiniScale ?: continue
-                val x = xAt(i); val y = yAt(high)
-                if (!started) { bandPath.moveTo(x, y); started = true } else bandPath.lineTo(x, y)
+                val v = valueOf(points[i]) ?: continue
+                val x = xAt(i); val y = yAt(v)
+                if (hasPrev) {
+                    drawLine(
+                        color = statusColor(points[prevIndex]) ?: buildingColor,
+                        start = Offset(prevX, prevY),
+                        end = Offset(x, y),
+                        strokeWidth = 1.75.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+                prevIndex = i; prevX = x; prevY = y; hasPrev = true
             }
-            for (i in i1 downTo i0) {
-                val low = points[i].normalRangeLowAltiniScale ?: continue
-                bandPath.lineTo(xAt(i), yAt(low))
-            }
-            bandPath.close()
-            drawPath(bandPath, color = bandColor.copy(alpha = 0.16f))
         }
 
-        // trend line
-        val linePath = Path()
-        var lineStarted = false
-        for (i in i0..i1) {
-            val v = valueOf(points[i]) ?: continue
-            val x = xAt(i); val y = yAt(v)
-            if (!lineStarted) { linePath.moveTo(x, y); lineStarted = true } else linePath.lineTo(x, y)
-        }
-        drawPath(
-            linePath,
-            color = lineColor.copy(alpha = 0.9f),
-            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
-
-        // status markers, thinned out so dense windows don't smear into a blob. Per spec,
-        // every point is the same 10dp-diameter dot with a 2dp outline -- only the fill color
-        // (fixed green/orange/red, see RangeWithin/Above/Below -- never themed, so a reading's
-        // clinical status reads the same under every palette) encodes within/above/below
-        // range; "building baseline" keeps its own open-ring treatment for that fourth state.
+        // status markers, thinned out so dense windows don't smear into a blob. Sized the same
+        // way RhrTrendChart's dots are: 3dp plain for every point except the latest, which
+        // gets 5dp plus a 2dp outline so today's reading stays visually emphasized -- only the
+        // fill color encodes within/above/below range; "building baseline" keeps its own
+        // open-ring treatment for that fourth state. CV7 (no such threshold) gets a plain dot
+        // instead -- see the metric check below.
         val visibleCount = (i1 - i0 + 1).coerceAtLeast(1)
         val markerEveryN = (visibleCount / 60).coerceAtLeast(1)
-        val markerPx = 5.dp.toPx()
         val outlinePx = 2.dp.toPx()
         var i = i0
         while (i <= i1) {
@@ -454,26 +534,26 @@ private fun TrendCanvas(
             val v = valueOf(p)
             if (v != null) {
                 val x = xAt(i); val y = yAt(v)
-                // Fixed clinical-signal colors (RangeWithin/Above/Below), never themed -- see
-                // their doc comments in Theme.kt. Above/below split uses the normal-range
-                // bounds directly rather than just p.withinNormalRange, which only says
-                // in/out, not which side.
-                val dotColor = when {
-                    p.normalRangeLowAltiniScale == null || p.normalRangeHighAltiniScale == null -> null
-                    p.altiniScaleValue > p.normalRangeHighAltiniScale -> RangeAbove
-                    p.altiniScaleValue < p.normalRangeLowAltiniScale -> RangeBelow
-                    else -> RangeWithin
-                }
-                when (dotColor) {
-                    null -> drawCircle(
-                        color = buildingColor,
-                        radius = markerPx * 0.9f,
-                        style = Stroke(width = 1.4.dp.toPx()),
-                        center = Offset(x, y),
-                    )
-                    else -> {
-                        drawCircle(color = dotColor, radius = markerPx, center = Offset(x, y))
-                        drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
+                val isLatest = i == i1
+                val markerPx = if (isLatest) 5.dp.toPx() else 3.dp.toPx()
+                if (metric == TrendMetric.CV7) {
+                    // No within/above/below judgement for CV7 (no universal threshold) --
+                    // a plain dot, not the clinical-signal colors the other two metrics use.
+                    drawCircle(color = lineColor, radius = markerPx * 0.7f, center = Offset(x, y))
+                } else {
+                    when (val dotColor = statusColor(p)) {
+                        null -> drawCircle(
+                            color = buildingColor,
+                            radius = markerPx * 0.9f,
+                            style = Stroke(width = 1.4.dp.toPx()),
+                            center = Offset(x, y),
+                        )
+                        else -> {
+                            drawCircle(color = dotColor, radius = markerPx, center = Offset(x, y))
+                            if (isLatest) {
+                                drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
+                            }
+                        }
                     }
                 }
             }

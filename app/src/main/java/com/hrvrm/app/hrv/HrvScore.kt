@@ -47,6 +47,19 @@ data class HrvScoreResult(
     /** Normal-range band bounds on the same display scale as [altiniScaleValue], for a details view. */
     val normalRangeLowAltiniScale: Double?,
     val normalRangeHighAltiniScale: Double?,
+    /**
+     * Coefficient of variation, as a percentage, of ln(RMSSD) over the last
+     * [HrvScoreCalculator.SMOOTHING_WINDOW_SIZE] readings (today plus up to 6 prior) --
+     * CV7 = 100 x SD7 / Mean7, same lnRMSSD series as everything else here so it stays one
+     * consistent metric. Says how *unstable* the autonomic response has been this past week,
+     * which the level-based score/baseline/normal-range trio above doesn't capture: a low or
+     * stable CV7 reads as a fairly regular response; a rising CV7 reads as more day-to-day
+     * instability, worth a second look especially alongside a falling baseline. No universal
+     * cutoff separates "recovered" from "fatigued" -- like the rest of this file, it's only
+     * meaningful against your own history. Null until [HrvScoreCalculator.MIN_BASELINE_SAMPLES]
+     * readings exist in that 7-reading window.
+     */
+    val cv7: Double?,
 )
 
 /**
@@ -100,8 +113,20 @@ object HrvScoreCalculator {
 
         val altiniScaleValue = lnToday * ALTINI_SCALE_FACTOR
 
-        val smoothedToday = (listOf(lnToday) + priorLn.take(SMOOTHING_WINDOW_SIZE - 1)).average()
+        val window7 = listOf(lnToday) + priorLn.take(SMOOTHING_WINDOW_SIZE - 1)
+        val smoothedToday = window7.average()
         val baselineAltiniScaleValue = smoothedToday * ALTINI_SCALE_FACTOR
+
+        // CV7 only needs this same 7-reading window, not the full 60-reading baseline below,
+        // so it can go READY earlier than the score/normal-range trio does. smoothedToday is
+        // this window's own mean -- reused here rather than recomputed.
+        val cv7 = if (window7.size >= MIN_BASELINE_SAMPLES) {
+            val windowVariance = window7.sumOf { (it - smoothedToday) * (it - smoothedToday) } / (window7.size - 1)
+            val windowSd = sqrt(windowVariance)
+            if (smoothedToday > 0.0) 100.0 * windowSd / smoothedToday else null
+        } else {
+            null
+        }
 
         val baselineLn = priorLn.take(BASELINE_WINDOW_SIZE)
         if (baselineLn.size < MIN_BASELINE_SAMPLES) {
@@ -116,6 +141,7 @@ object HrvScoreCalculator {
                 baselineSdLnRmssd = null,
                 normalRangeLowAltiniScale = null,
                 normalRangeHighAltiniScale = null,
+                cv7 = cv7,
             )
         }
 
@@ -138,6 +164,7 @@ object HrvScoreCalculator {
             baselineSdLnRmssd = sd,
             normalRangeLowAltiniScale = (mean - halfBand) * ALTINI_SCALE_FACTOR,
             normalRangeHighAltiniScale = (mean + halfBand) * ALTINI_SCALE_FACTOR,
+            cv7 = cv7,
         )
     }
 }

@@ -158,6 +158,7 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
                             MetricRow("Average heart rate", "${current.meanHrBpm.roundToInt()} bpm")
                             MetricRow("RMSSD", "${current.rmssdMs.roundToInt()} ms")
                             MetricRow("HRV baseline (7-reading avg)", "%.1f".format(current.baselineAltiniScaleValue))
+                            MetricRow("CV7 (7-reading variability)", current.cv7?.let { "%.1f %%".format(it) } ?: "Building…")
                             MetricRow("Normalized HRV", "%.1f %%".format(current.normalizedHrvPercent))
                             MetricRow("Mean RR", "${current.meanIbiMs.roundToInt()} ms")
                             MetricRow("SDNN", "${current.sdnnMs.roundToInt()} ms")

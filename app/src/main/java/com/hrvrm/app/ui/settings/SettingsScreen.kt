@@ -436,6 +436,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
+                "• CV7: coefficient of variation of ln(RMSSD) over the last 7 readings " +
+                    "(CV7 = 100 × SD7 / Mean7) — standard statistical dispersion measure, " +
+                    "applied here to track week-to-week autonomic response stability.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
                 "• Stress Index: Baevsky & Chernikova — standard cardiovascular/space-" +
                     "medicine formula (SI = AMo / (2 × Mo × MxDMn)).",
                 style = MaterialTheme.typography.bodySmall,
