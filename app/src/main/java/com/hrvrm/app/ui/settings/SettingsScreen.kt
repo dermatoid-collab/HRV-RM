@@ -392,6 +392,124 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         HorizontalDivider()
 
         Text(
+            "Glossary",
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
+            fontWeight = FontWeight.Bold,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "• Baseline (HRV baseline, 7-reading avg) — rolling average of the last 7 " +
+                    "HRV score readings; more stable than the day's own value.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Building baseline — shown when there aren't yet enough past readings " +
+                    "(minimum 3) to compute a reliable normal range.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• CV7 — Coefficient of Variation: 100 × SD / Mean of the last 7 ln(RMSSD) " +
+                    "readings. Tracks week-to-week autonomic response instability.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• HRV — Heart Rate Variability.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• HRV score — the main value shown (e.g. \"10.0\"): today's own " +
+                    "2 × ln(RMSSD), unsmoothed, on an HRV4Training-style log scale.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• IBI — Inter-Beat Interval: time between two consecutive heartbeats " +
+                    "(same as RR).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• ln scale — logarithmic scale: marks a chart as showing HRV score " +
+                    "rather than Score %.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Normal range — the band (±1 SD over the last 60 readings) a reading " +
+                    "is compared against.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Outside range — today's reading falls outside your personal normal range.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• pNN50 — percentage of consecutive beat-to-beat differences greater " +
+                    "than 50ms.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• PPG — Photoplethysmography: the camera + flash measurement technique " +
+                    "this app uses.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• RHR — Resting Heart Rate.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• RMSSD — Root Mean Square of Successive Differences between " +
+                    "consecutive beats.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Score % — HRV score rescaled to 0-100 (your own z-score × 20 + 50), " +
+                    "for an easier-to-read trend line.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• SD1 — Poincaré plot short-term (beat-to-beat) variability.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• SD2 — Poincaré plot long-term variability.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• SDNN — Standard Deviation of NN intervals: the spread of all " +
+                    "beat-to-beat intervals in a measurement.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Stress index — Baevsky's Stress Index, a measure of autonomic " +
+                    "nervous system \"rigidity\".",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "• Within range — today's reading falls inside your personal normal range.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        HorizontalDivider()
+
+        Text(
             "About",
             fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
             fontWeight = FontWeight.Bold,

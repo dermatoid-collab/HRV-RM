@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -148,7 +149,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
 
     Column(modifier = modifier) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(CHIP_GAP),
+            horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (hasScore) {
@@ -190,7 +191,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 4.dp),
             ) {
-                LegendSwatch(dashed = false, label = if (effectiveMetric == TrendMetric.SCORE) "HRV score %" else "HRV score (ln scale)")
+                LegendSwatch(bar = true, label = if (effectiveMetric == TrendMetric.SCORE) "HRV score %" else "HRV score (ln scale)")
                 LegendSwatch(dashed = true, label = "CV7 variability (%)", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -206,18 +207,27 @@ private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
 }
 
 @Composable
-private fun LegendSwatch(dashed: Boolean, label: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+private fun LegendSwatch(
+    label: String,
+    dashed: Boolean = false,
+    bar: Boolean = false,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(modifier = Modifier.width(16.dp).height(8.dp)) {
-            val y = size.height / 2f
-            drawLine(
-                color = color,
-                start = Offset(0f, y),
-                end = Offset(size.width, y),
-                strokeWidth = 2.dp.toPx(),
-                cap = StrokeCap.Round,
-                pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(5f, 4f)) else null,
-            )
+            if (bar) {
+                drawRoundRect(color = color, size = size, cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()))
+            } else {
+                val y = size.height / 2f
+                drawLine(
+                    color = color,
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round,
+                    pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(5f, 4f)) else null,
+                )
+            }
         }
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -340,7 +350,6 @@ private fun TrendCanvas(
     val buildingColor = MaterialTheme.colorScheme.onSurfaceVariant
     val selectionColor = MaterialTheme.colorScheme.primary
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val surfaceColor = MaterialTheme.colorScheme.surface
 
     // Gesture state is read fresh via rememberUpdatedState rather than as plain captured
     // parameters: the pointerInput coroutine below is keyed on Unit (never restarts for the
@@ -540,27 +549,25 @@ private fun TrendCanvas(
             else -> RangeWithin
         }
 
-        // trend line -- colored per segment by its starting point's status. A "building
-        // baseline" segment falls back to buildingColor.
-        run {
-            var hasPrev = false
-            var prevIndex = i0
-            var prevX = 0f
-            var prevY = 0f
-            for (i in i0..i1) {
-                val v = valueOf(points[i]) ?: continue
-                val x = xAt(i); val y = yAt(v)
-                if (hasPrev) {
-                    drawLine(
-                        color = statusColor(points[prevIndex]) ?: buildingColor,
-                        start = Offset(prevX, prevY),
-                        end = Offset(x, y),
-                        strokeWidth = 1.75.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                }
-                prevIndex = i; prevX = x; prevY = y; hasPrev = true
-            }
+        // trend bars -- one per reading, colored by its own status (replaces the former
+        // dot+connecting-line rendering entirely). Each bar rises from the bottom of the
+        // current domain (literal zero for SCORE, whose domain is fixed 0..100; the visible
+        // window's own floor for LN_SCALE, which has no meaningful zero) up to its value --
+        // yAt(domain.start) is always plotBottom by construction, so "plotBottom" already is
+        // that floor for either metric. Width is a fraction of the per-point slot so bars
+        // stay reasonably sized whether a handful or hundreds are visible at once.
+        val barSlotWidth = (plotRight - plotLeft) / span
+        val barWidth = (barSlotWidth * 0.62f).coerceIn(1.5.dp.toPx(), 10.dp.toPx())
+        val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        for (i in i0..i1) {
+            val v = valueOf(points[i]) ?: continue
+            val x = xAt(i); val y = yAt(v)
+            drawRoundRect(
+                color = statusColor(points[i]) ?: buildingColor,
+                topLeft = Offset(x - barWidth / 2f, y),
+                size = Size(barWidth, plotBottom - y),
+                cornerRadius = barCorner,
+            )
         }
 
         // CV7 overlay -- always drawn alongside the primary metric's line when present (no
@@ -585,41 +592,6 @@ private fun TrendCanvas(
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 7f)),
                 ),
             )
-        }
-
-        // status markers, thinned out so dense windows don't smear into a blob. Sized the same
-        // way RhrTrendChart's dots are: 3dp plain for every point except the latest, which
-        // gets 5dp plus a 2dp outline so today's reading stays visually emphasized -- only the
-        // fill color encodes within/above/below range; "building baseline" keeps its own
-        // open-ring treatment for that fourth state. No separate markers for the CV7 overlay --
-        // its dashed line alone is enough, matching the mockup.
-        val visibleCount = (i1 - i0 + 1).coerceAtLeast(1)
-        val markerEveryN = (visibleCount / 60).coerceAtLeast(1)
-        val outlinePx = 2.dp.toPx()
-        var i = i0
-        while (i <= i1) {
-            val p = points[i]
-            val v = valueOf(p)
-            if (v != null) {
-                val x = xAt(i); val y = yAt(v)
-                val isLatest = i == i1
-                val markerPx = if (isLatest) 5.dp.toPx() else 3.dp.toPx()
-                when (val dotColor = statusColor(p)) {
-                    null -> drawCircle(
-                        color = buildingColor,
-                        radius = markerPx * 0.9f,
-                        style = Stroke(width = 1.4.dp.toPx()),
-                        center = Offset(x, y),
-                    )
-                    else -> {
-                        drawCircle(color = dotColor, radius = markerPx, center = Offset(x, y))
-                        if (isLatest) {
-                            drawCircle(color = surfaceColor, radius = markerPx, center = Offset(x, y), style = Stroke(width = outlinePx))
-                        }
-                    }
-                }
-            }
-            i += markerEveryN
         }
 
         // selection crosshair -- also the spec's "latest vertical reference" when nothing is

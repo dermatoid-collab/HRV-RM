@@ -24,12 +24,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -242,7 +241,6 @@ private fun RhrCanvas(
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridLineColor = ChartGridLine
     val selectionColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = MaterialTheme.colorScheme.surface
 
     // Read fresh via rememberUpdatedState: the pointerInput below is keyed on Unit so it
     // never restarts, and would otherwise keep using whichever points/bounds were current
@@ -351,34 +349,20 @@ private fun RhrCanvas(
             }
         }
 
-        // line (no area fill under it -- just the band fill above handles shading on this
-        // chart), colored per segment by its starting day's status so it matches the dots.
-        for (i in i0 until i1) {
-            val x1 = xAt(i); val y1 = yAt(points[i].meanHrBpm)
-            val x2 = xAt(i + 1); val y2 = yAt(points[i + 1].meanHrBpm)
-            drawLine(
-                color = statusColor(i),
-                start = Offset(x1, y1),
-                end = Offset(x2, y2),
-                strokeWidth = 1.75.dp.toPx(),
-                cap = StrokeCap.Round,
-            )
-        }
-
-        // Daily dots stay small -- this chart (unlike HrvTrendChart's thinned status markers)
-        // draws one per visible day, so the spec's 10dp point diameter would overlap into a
-        // solid blob on a 30-90 day window. Only the most recent day gets the full spec
-        // treatment (10dp, 2dp outline), the same way it's visually emphasized today.
+        // bars -- one per visible day, colored by that day's own status. Replaces the former
+        // dot+connecting-line rendering entirely; see the identical treatment (with the full
+        // reasoning on the floating baseline and width sizing) in HrvTrendChart.
+        val barSlotWidth = (plotRight - plotLeft) / span
+        val barWidth = (barSlotWidth * 0.62f).coerceIn(1.5.dp.toPx(), 10.dp.toPx())
+        val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
         for (i in i0..i1) {
-            val x = xAt(i)
-            val y = yAt(points[i].meanHrBpm)
-            val dotColor = statusColor(i)
-            if (i == i1) {
-                drawCircle(color = dotColor, radius = 5.dp.toPx(), center = Offset(x, y))
-                drawCircle(color = surfaceColor, radius = 5.dp.toPx(), center = Offset(x, y), style = Stroke(width = 2.dp.toPx()))
-            } else {
-                drawCircle(color = dotColor, radius = 3.dp.toPx(), center = Offset(x, y))
-            }
+            val x = xAt(i); val y = yAt(points[i].meanHrBpm)
+            drawRoundRect(
+                color = statusColor(i),
+                topLeft = Offset(x - barWidth / 2f, y),
+                size = Size(barWidth, plotBottom - y),
+                cornerRadius = barCorner,
+            )
         }
 
         // selection crosshair -- also the spec's "latest vertical reference" by default, since
