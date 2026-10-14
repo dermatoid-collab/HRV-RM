@@ -117,11 +117,11 @@ val RangeBelow = Color(0xFFE53935)
 // CV7's own overlay line/axis colour on the HRV trend chart (HrvTrendChart) -- fixed like the
 // Range* trio above, for the same reason: it's a distinct signal overlaid on the HRV line, not
 // a palette accent, so it must read the same regardless of which colour palette is active. No
-// within/above/below variants -- CV7 has no universal threshold (see its doc comment). Amber,
-// deliberately not teal/cyan -- the legacy palette's own secondary (the HRV chart's own
-// normal-range band colour, below) is exactly that teal, which would make the two indistinguishable
-// on the one chart that shows both.
-val Cv7Overlay = Color(0xFFFFCA28)
+// within/above/below variants -- CV7 has no universal threshold (see its doc comment). Sky blue,
+// deliberately not the legacy palette's own secondary (the HRV chart's own normal-range band
+// colour, below), which is a teal, so the two stay visually distinguishable on the one chart
+// that shows both.
+val Cv7Overlay = Color(0xFF29B6F6)
 
 // RhrTrendChart's own normal-range band colour -- fixed, unlike HrvTrendChart's (which stays
 // MaterialTheme.colorScheme.secondary, following the active palette) specifically so the two

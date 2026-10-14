@@ -124,10 +124,12 @@ class MeasurementRepository(
      * entries read correctly under the corrected formula instead of showing a stale one. Safe
      * to call on every app start: no-ops once already done. Bump the backfill flag's version
      * suffix (in SettingsStore) whenever the formula changes again, so this reruns for the
-     * new constants.
+     * new constants -- also used (V8 -> V9) as a one-off full recompute to repair imports made
+     * before [importBackupJson] started forcing its own recompute, which could otherwise leave
+     * imported rows missing newer derived fields (e.g. CV7) the backup predated.
      */
     suspend fun backfillHrvScoresIfNeeded() {
-        if (settingsStore.hrvScoreBackfillV8Done.first()) return
+        if (settingsStore.hrvScoreBackfillV9Done.first()) return
 
         val chronological = dao.getAllOnce().sortedBy { it.timestampEpochMs }
         val priorRmssd = ArrayDeque<Double>() // most-recent-first, capped at BASELINE_WINDOW_SIZE
@@ -149,7 +151,7 @@ class MeasurementRepository(
             while (priorRmssd.size > HrvScoreCalculator.BASELINE_WINDOW_SIZE) priorRmssd.removeLast()
         }
 
-        settingsStore.setHrvScoreBackfillV8Done(true)
+        settingsStore.setHrvScoreBackfillV9Done(true)
     }
 
     /** The full local history as a JSON [MeasurementBackup] — see that type's doc comment. */
@@ -186,7 +188,17 @@ class MeasurementRepository(
             .filter { it.timestampEpochMs !in existingTimestamps }
             .map { it.copy(id = 0) }
 
-        if (toInsert.isNotEmpty()) dao.insertAll(toInsert)
+        if (toInsert.isNotEmpty()) {
+            dao.insertAll(toInsert)
+            // Imported rows carry whatever derived fields (score, normal range, CV7...) the
+            // source device had already computed -- which, for a backup made before a field
+            // like CV7 existed, means that field comes in null. Force a full recompute now
+            // rather than leaving imported rows inconsistent with ones measured on this
+            // device, instead of waiting on backfillHrvScoresIfNeeded's own app-start trigger
+            // (whose done-flag is already set once this device has backfilled before).
+            settingsStore.setHrvScoreBackfillV9Done(false)
+            backfillHrvScoresIfNeeded()
+        }
 
         return BackupImportResult(
             imported = toInsert.size,
