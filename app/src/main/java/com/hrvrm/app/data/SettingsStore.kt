@@ -33,6 +33,7 @@ class SettingsStore(private val context: Context) {
         val MEASUREMENT_REMINDER_ENABLED = booleanPreferencesKey("measurement_reminder_enabled")
         val MEASUREMENT_REMINDER_HOUR = intPreferencesKey("measurement_reminder_hour")
         val MEASUREMENT_REMINDER_MINUTE = intPreferencesKey("measurement_reminder_minute")
+        val BATTERY_OPTIMIZATION_PROMPT_SHOWN = booleanPreferencesKey("battery_optimization_prompt_shown")
     }
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[Keys.API_KEY] }
@@ -62,6 +63,10 @@ class SettingsStore(private val context: Context) {
     val measurementReminderEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.MEASUREMENT_REMINDER_ENABLED] ?: true }
     val measurementReminderHour: Flow<Int> = context.dataStore.data.map { it[Keys.MEASUREMENT_REMINDER_HOUR] ?: 5 }
     val measurementReminderMinute: Flow<Int> = context.dataStore.data.map { it[Keys.MEASUREMENT_REMINDER_MINUTE] ?: 0 }
+
+    /** Whether the one-time "disable battery optimization" prompt (see MainActivity) has already been shown/dismissed. */
+    val batteryOptimizationPromptShown: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.BATTERY_OPTIMIZATION_PROMPT_SHOWN] ?: false }
 
     suspend fun setCredentials(apiKey: String, athleteId: String) {
         // Stored exactly as entered (just trimmed) — no "i" prefix guessing. ERG-RM,
@@ -134,5 +139,9 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.MEASUREMENT_REMINDER_HOUR] = hour
             prefs[Keys.MEASUREMENT_REMINDER_MINUTE] = minute
         }
+    }
+
+    suspend fun setBatteryOptimizationPromptShown(shown: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.BATTERY_OPTIMIZATION_PROMPT_SHOWN] = shown }
     }
 }

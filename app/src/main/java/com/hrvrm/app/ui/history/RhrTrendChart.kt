@@ -44,6 +44,7 @@ import com.hrvrm.app.ui.theme.ChartGridLine
 import com.hrvrm.app.ui.theme.RangeAbove
 import com.hrvrm.app.ui.theme.RangeBelow
 import com.hrvrm.app.ui.theme.RangeWithin
+import com.hrvrm.app.ui.theme.RhrBandOverlay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -73,7 +74,7 @@ private val rhrRangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" 
 /** Same pill treatment as HrvTrendChart's CHIP_HEIGHT -- see its comment. */
 private val RHR_CHIP_HEIGHT = 32.dp
 private val RHR_CHIP_PADDING_H = 8.dp
-private val RHR_CHIP_GAP = 4.dp
+private val RHR_CHIP_GAP = 2.dp
 private val RHR_CHIP_FONT_SIZE = 11.sp
 
 private fun rhrStartIndexForLastDays(points: List<DailyRhrPoint>, days: Int): Int {
@@ -160,21 +161,21 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             null -> MaterialTheme.colorScheme.onSurfaceVariant
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         ) {
-            Text(shown.date.format(rhrDayFormatter), style = MaterialTheme.typography.bodyMedium)
-            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(shown.date.format(rhrDayFormatter), fontSize = RHR_CHIP_FONT_SIZE)
+            Text("·", fontSize = RHR_CHIP_FONT_SIZE, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 "${shown.meanHrBpm.roundToInt()} bpm",
-                style = MaterialTheme.typography.titleMedium,
+                fontSize = RHR_CHIP_FONT_SIZE,
                 fontWeight = FontWeight.Bold,
             )
-            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("·", fontSize = RHR_CHIP_FONT_SIZE, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 shownStatusLabel,
-                style = MaterialTheme.typography.bodyMedium,
+                fontSize = RHR_CHIP_FONT_SIZE,
                 color = shownStatusColor,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -236,7 +237,7 @@ private fun RhrCanvas(
     modifier: Modifier,
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val bandColor = MaterialTheme.colorScheme.tertiary
+    val bandColor = RhrBandOverlay
     val buildingColor = MaterialTheme.colorScheme.onSurfaceVariant
     val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridLineColor = ChartGridLine

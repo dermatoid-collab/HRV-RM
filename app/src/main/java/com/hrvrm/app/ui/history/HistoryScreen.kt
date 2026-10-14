@@ -1,5 +1,6 @@
 package com.hrvrm.app.ui.history
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
+import com.hrvrm.app.ui.theme.RhrBandOverlay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -75,13 +77,21 @@ fun HistoryScreen(
         }
 
         if (dailyTrend.size >= 2) {
-            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+            // Border matches the chart's own normal-range band colour (full opacity, unlike the
+            // band's own 0.16-alpha fill) so the card visually "belongs to" that band.
+            OutlinedCard(
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+                modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp),
+            ) {
                 HrvTrendChart(dailyTrend, modifier = Modifier.padding(10.dp))
             }
         }
 
         if (dailyRhrTrend.size >= 2) {
-            OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp)) {
+            OutlinedCard(
+                border = BorderStroke(1.dp, RhrBandOverlay),
+                modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp),
+            ) {
                 RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(10.dp))
             }
         }

@@ -114,6 +114,23 @@ val RangeWithin = Color(0xFF4CAF50)
 val RangeAbove = Color(0xFFFFA726)
 val RangeBelow = Color(0xFFE53935)
 
+// CV7's own overlay line/axis colour on the HRV trend chart (HrvTrendChart) -- fixed like the
+// Range* trio above, for the same reason: it's a distinct signal overlaid on the HRV line, not
+// a palette accent, so it must read the same regardless of which colour palette is active. No
+// within/above/below variants -- CV7 has no universal threshold (see its doc comment). Amber,
+// deliberately not teal/cyan -- the legacy palette's own secondary (the HRV chart's own
+// normal-range band colour, below) is exactly that teal, which would make the two indistinguishable
+// on the one chart that shows both.
+val Cv7Overlay = Color(0xFFFFCA28)
+
+// RhrTrendChart's own normal-range band colour -- fixed, unlike HrvTrendChart's (which stays
+// MaterialTheme.colorScheme.secondary, following the active palette) specifically so the two
+// trend charts read as visually distinct at a glance regardless of which palette is active,
+// rather than only coincidentally differing (secondary vs tertiary) depending on the palette's
+// own color choices. A muted violet -- distinct from the Range* trio, Cv7Overlay's amber, and
+// every palette's own secondary/tertiary hues.
+val RhrBandOverlay = Color(0xFF9575CD)
+
 // Card radius is a "Design System Comune" rule shared by all 3 screens, so it lives on the
 // theme (applies to every Card/OutlinedCard's default shape) rather than being repeated as a
 // per-call override. Shared by every palette, not just the legacy one.
