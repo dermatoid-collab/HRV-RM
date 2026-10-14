@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.data.MeasurementEntity
-import com.hrvrm.app.ui.theme.Cv7Overlay
 import com.hrvrm.app.ui.theme.RhrBandOverlay
 import java.time.Instant
 import java.time.ZoneId
@@ -215,7 +214,7 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
                             " · CV7 %.1f%%".format(cv7),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = Cv7Overlay,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }

@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.sp
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ui.theme.ChartGridLine
-import com.hrvrm.app.ui.theme.Cv7Overlay
 import com.hrvrm.app.ui.theme.RangeAbove
 import com.hrvrm.app.ui.theme.RangeBelow
 import com.hrvrm.app.ui.theme.RangeWithin
@@ -114,8 +113,7 @@ private val rangeOptions = listOf("7D" to 7, "30D" to 30, "90D" to 90, "All" to 
  * "All" get clipped by the card edge once the row grew to 6 pills. */
 private val CHIP_HEIGHT = 32.dp
 private val CHIP_PADDING_H = 8.dp
-private val CHIP_GAP = 4.dp
-private val RANGE_CHIP_GAP = 2.dp
+private val CHIP_GAP = 2.dp
 private val CHIP_FONT_SIZE = 11.sp
 
 private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float {
@@ -193,7 +191,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
                 modifier = Modifier.padding(top = 4.dp),
             ) {
                 LegendSwatch(dashed = false, label = if (effectiveMetric == TrendMetric.SCORE) "HRV score %" else "HRV score (ln scale)")
-                LegendSwatch(dashed = true, label = "CV7 variability (%)", color = Cv7Overlay)
+                LegendSwatch(dashed = true, label = "CV7 variability (%)", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -250,7 +248,7 @@ private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun RangePresets(selected: String?, modifier: Modifier = Modifier, onSelect: (label: String, days: Int?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(RANGE_CHIP_GAP), modifier = modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(CHIP_GAP), modifier = modifier) {
         rangeOptions.forEach { (label, days) ->
             RangePresetButton(label, selected = label == selected) { onSelect(label, days) }
         }
@@ -317,7 +315,7 @@ private fun SelectionReadout(point: DailyHrvPoint, metric: TrendMetric, hasCv7: 
             Text(
                 point.cv7?.let { "CV7 %.1f%%".format(it) } ?: "CV7 –",
                 fontSize = CHIP_FONT_SIZE,
-                color = Cv7Overlay,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -495,7 +493,7 @@ private fun TrendCanvas(
                 val v = cv7Domain.start + (cv7Domain.endInclusive - cv7Domain.start) * s / steps
                 val y = cv7YAt(v)
                 val label = "%.0f%%".format(v)
-                val layout = textMeasurer.measure(label, style = TextStyle(fontSize = 9.sp, color = Cv7Overlay))
+                val layout = textMeasurer.measure(label, style = TextStyle(fontSize = 9.sp, color = buildingColor))
                 drawText(layout, topLeft = Offset(plotRight + 4.dp.toPx(), y - layout.size.height / 2f))
             }
         }
@@ -579,9 +577,9 @@ private fun TrendCanvas(
             }
             drawPath(
                 cv7Path,
-                color = Cv7Overlay.copy(alpha = 0.9f),
+                color = buildingColor.copy(alpha = 0.9f),
                 style = Stroke(
-                    width = 1.75.dp.toPx(),
+                    width = 1.25.dp.toPx(),
                     cap = StrokeCap.Round,
                     join = StrokeJoin.Round,
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 7f)),
