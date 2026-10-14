@@ -148,7 +148,7 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
 
     Column(modifier = modifier) {
         Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(CHIP_GAP),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (hasScore) {
