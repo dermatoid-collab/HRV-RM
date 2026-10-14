@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -133,16 +135,21 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
     val rangeEnd = points.lastIndex
 
     Column(modifier = modifier) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Resting HR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            RhrRangePresets(selectedRangeLabel) { label, days ->
-                rangeStart = if (days == null) 0 else rhrStartIndexForLastDays(points, days)
-                selectedRangeLabel = label
-                selectedIndex = null
+        // See the identical fix (with the full reasoning) in HrvTrendChart: Material3's
+        // clickable Surface pads itself to a 48dp minimum touch target by default, which
+        // inflates the gap between these range chips since each is narrower than that.
+        CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Resting HR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                RhrRangePresets(selectedRangeLabel) { label, days ->
+                    rangeStart = if (days == null) 0 else rhrStartIndexForLastDays(points, days)
+                    selectedRangeLabel = label
+                    selectedIndex = null
+                }
             }
         }
 

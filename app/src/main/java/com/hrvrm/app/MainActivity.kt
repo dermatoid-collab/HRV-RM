@@ -58,8 +58,7 @@ class MainActivity : ComponentActivity() {
             HrvRmTheme(mode = themeMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        RequestNotificationPermissionOnLaunch()
-                        BatteryOptimizationPrompt()
+                        FirstLaunchPrompts()
                         AppNavHost(startAtSettings = openBackup)
                     }
                 }
@@ -73,19 +72,40 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** POST_NOTIFICATIONS is required from Android 13 for the weekly backup reminder to show at all. */
+/**
+ * Runs the notification-permission request (Android 13+) and the battery-optimization
+ * prompt one after the other, never both at once. Showing two system/app dialogs on the
+ * very first launch at the same time is why the battery prompt was never actually seen --
+ * the notification permission's own system dialog grabs focus first, and whatever happens
+ * to our AlertDialog underneath it (never shown, or dismissed by the Activity's pause/resume
+ * as the system dialog takes over) isn't something we control. Sequencing removes the race
+ * entirely: the battery prompt only composes in once the notification step has resolved.
+ */
 @Composable
-private fun RequestNotificationPermissionOnLaunch() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+private fun FirstLaunchPrompts() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        BatteryOptimizationPrompt()
+        return
+    }
+
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    var notificationStepDone by remember { mutableStateOf(false) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationStepDone = true
+    }
     LaunchedEffect(Unit) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-        if (!granted) {
+        if (granted) {
+            notificationStepDone = true
+        } else {
             AppResumeSignal.suppressNextResume = true
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    if (notificationStepDone) {
+        BatteryOptimizationPrompt()
     }
 }
 
@@ -100,14 +120,14 @@ private fun BatteryOptimizationPrompt() {
     val context = LocalContext.current
     val settingsStore = (context.applicationContext as HrvRmApp).container.settingsStore
     val scope = rememberCoroutineScope()
-    val alreadyShown by settingsStore.batteryOptimizationPromptShown.collectAsState(initial = true)
+    val alreadyShown by settingsStore.batteryOptimizationPromptShownV2.collectAsState(initial = true)
     var showDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(alreadyShown) {
         if (alreadyShown) return@LaunchedEffect
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-            settingsStore.setBatteryOptimizationPromptShown(true)
+            settingsStore.setBatteryOptimizationPromptShownV2(true)
         } else {
             showDialog = true
         }
@@ -117,7 +137,7 @@ private fun BatteryOptimizationPrompt() {
         AlertDialog(
             onDismissRequest = {
                 showDialog = false
-                scope.launch { settingsStore.setBatteryOptimizationPromptShown(true) }
+                scope.launch { settingsStore.setBatteryOptimizationPromptShownV2(true) }
             },
             title = { Text("Keep the daily reminder reliable") },
             text = {
@@ -130,7 +150,7 @@ private fun BatteryOptimizationPrompt() {
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
-                    scope.launch { settingsStore.setBatteryOptimizationPromptShown(true) }
+                    scope.launch { settingsStore.setBatteryOptimizationPromptShownV2(true) }
                     runCatching {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -143,7 +163,7 @@ private fun BatteryOptimizationPrompt() {
             dismissButton = {
                 TextButton(onClick = {
                     showDialog = false
-                    scope.launch { settingsStore.setBatteryOptimizationPromptShown(true) }
+                    scope.launch { settingsStore.setBatteryOptimizationPromptShownV2(true) }
                 }) { Text("Not now") }
             },
         )

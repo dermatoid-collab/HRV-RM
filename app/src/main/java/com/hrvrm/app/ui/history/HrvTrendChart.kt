@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -148,20 +150,28 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (hasScore) {
-                MetricToggle(effectiveMetric, onChange = { metric = it })
-            } else {
-                Text("HRV score", style = MaterialTheme.typography.labelSmall)
-            }
-            RangePresets(selectedRangeLabel) { label, days ->
-                viewStart = if (days == null) 0f else startIndexForLastDays(points, days)
-                viewEnd = maxIndex
-                selectedIndex = null
-                selectedRangeLabel = label
+        // Material3's clickable Surface (used by every chip below) pads itself out to a
+        // 48dp minimum touch target by default -- invisible, but it inflates the *gap*
+        // between any two chips narrower than 48dp (7D/30D/90D/All all are; HRV score/
+        // Score % aren't, which is why only the range chips looked wrongly spaced).
+        // Disabling it here is the same fix already used for the sync IconButton in
+        // HistoryScreen.kt.
+        CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (hasScore) {
+                    MetricToggle(effectiveMetric, onChange = { metric = it })
+                } else {
+                    Text("HRV score", style = MaterialTheme.typography.labelSmall)
+                }
+                RangePresets(selectedRangeLabel) { label, days ->
+                    viewStart = if (days == null) 0f else startIndexForLastDays(points, days)
+                    viewEnd = maxIndex
+                    selectedIndex = null
+                    selectedRangeLabel = label
+                }
             }
         }
 
