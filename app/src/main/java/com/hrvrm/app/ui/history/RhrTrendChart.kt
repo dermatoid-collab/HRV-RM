@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -125,6 +126,7 @@ fun rhrWithinNormalRange(points: List<DailyRhrPoint>, index: Int): Boolean? {
  * same one, so it gets its own small card with just the 7/30/90-day presets instead of
  * another entry in the HRV chart's toggle.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
     if (points.size < 2) return // nothing to trend yet

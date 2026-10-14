@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -131,6 +132,7 @@ private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float
  * jump to it — the active preset stays highlighted until a pinch/pan moves the view away
  * from an exact preset window.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
     if (points.size < 2) return // nothing to trend yet — the row below already shows the one reading
