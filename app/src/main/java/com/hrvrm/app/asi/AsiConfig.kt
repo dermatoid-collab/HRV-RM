@@ -14,10 +14,11 @@ package com.hrvrm.app.asi
  * checked for false alarms and classification stability, before trusting ASI for training
  * decisions -- nothing here changes that.
  *
- * Deliberate simplification from the original spec: every z-score below (daily and smoothed
- * 7-reading alike) is computed against the SAME [BASELINE_WINDOW_SIZE]-reading baseline already
- * used by HrvScoreCalculator's own Normal Range, rather than the spec's separate non-overlapping
- * reference-window statistics. Fewer moving parts, reuses what's already shipped and tested.
+ * Deliberate simplification from the original spec: the daily and 7-reading-smoothed z-scores for
+ * a metric are drawn from the SAME up-to-[BASELINE_WINDOW_SIZE] pooled window of preceding
+ * readings, rather than two separate reference windows -- but within that shared window, the
+ * smoothed variant still gets its own mean/SD, from genuinely non-overlapping 7-reading blocks
+ * (see AsiEngine.smoothedSeries), per the spec's own "le finestre non devono sovrapporsi".
  */
 object AsiConfig {
     const val VERSION = "hrvrm-asi-1.0"
@@ -37,6 +38,18 @@ object AsiConfig {
     const val MIN_BASELINE_SAMPLES = 3
     const val MIN_CV7_HISTORICAL_VALUES = 10
     const val MAX_RECENT_WINDOW_SPAN_DAYS = 10
+
+    /**
+     * Minimum number of non-overlapping 7-reading blocks (see AsiEngine.smoothedSeries) needed
+     * before HRV7/RHR7 get their own mean/SD to be scored against -- deliberately lower than
+     * [MIN_BASELINE_SAMPLES]: a non-overlapping design needs 7x as many readings per reference
+     * point as the single-reading daily baseline does, so requiring the same sample *count* would
+     * need 21+ preceding readings just for HRV7/RHR7 to ever activate -- well past
+     * [MIN_PRECEDING_READINGS]. 2 blocks (= 14 readings) lines up with that threshold instead, at
+     * the cost of an admittedly very rough 2-point SD estimate early on (Confidence reports this
+     * honestly as MODERATE, not HIGH).
+     */
+    const val MIN_SMOOTHED_BASELINE_BLOCKS = 2
 
     // -- Numerical floors for z-score denominators -- experimental guards, not physiological
     // thresholds (the spec is explicit about this distinction).

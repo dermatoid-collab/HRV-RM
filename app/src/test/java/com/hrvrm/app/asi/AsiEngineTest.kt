@@ -110,6 +110,18 @@ class AsiEngineTest {
         assertEquals(0.0, oldPenalty, 1e-9) // confirms this really would have been missed before the fix
     }
 
+    @Test fun smoothedReferenceNeedsTwoFullNonOverlappingBlocksNotJustFourteenReadings() {
+        // 13 preceding readings is only one full non-overlapping 7-block (and 6 leftover, dropped
+        // rather than averaged short) -- below AsiConfig.MIN_SMOOTHED_BASELINE_BLOCKS (2), so HRV7
+        // can't be scored yet even though the daily parameter (needing only 3) is long since ready.
+        val thirteen = AsiEngine.compute(AsiInput(healthyToday(), healthyPreceding().take(13)))
+        assertEquals(AsiMissingReason.INSUFFICIENT_HISTORY.name, thirteen.parameters.first { it.key == AsiParameterKey.HRV7 }.statusName)
+
+        // 14 is exactly two full blocks -- just enough.
+        val fourteen = AsiEngine.compute(AsiInput(healthyToday(), healthyPreceding().take(14)))
+        assertTrue(fourteen.parameters.first { it.key == AsiParameterKey.HRV7 }.available)
+    }
+
     // -- Item 8: all main ASI status bands, item 7: 0-100 limits ------------------------------------
 
     @Test fun healthyInputScoresMaximumAndFavorable() {

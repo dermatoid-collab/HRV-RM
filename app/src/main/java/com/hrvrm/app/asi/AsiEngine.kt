@@ -80,12 +80,17 @@ internal data class AsiContext(
  * [AsiInterpretation]'s job (spec 16.C) -- this object only produces the numbers that layer classifies.
  *
  * Deliberate simplification (user-confirmed): both the daily and the 7-reading-smoothed z-scores
- * for a metric are computed from the SAME up-to-[AsiConfig.BASELINE_WINDOW_SIZE] pooled window of
- * preceding readings, rather than the spec's separate non-overlapping reference windows (spec
- * 3.2/3.4) -- one window per metric instead of two. Within that shared window, the daily and
- * smoothed variants still each get their OWN mean/SD (see [smoothedSeries]): a 7-reading average
- * has naturally lower variance than a single reading, so dividing its deviation by the single-
- * reading SD used for the daily z-score would systematically understate it.
+ * for a metric are drawn from the SAME up-to-[AsiConfig.BASELINE_WINDOW_SIZE] pooled window of
+ * preceding readings, rather than the spec's two entirely separate reference windows (spec
+ * 3.2/3.4) -- one window per metric instead of two. Within that shared window, the smoothed
+ * variant still gets its own mean/SD (see [smoothedSeries]), not the single-reading daily
+ * baseline's -- a 7-reading average has much lower variance than a single reading, so reusing the
+ * daily SD as zHRV7/zRHR7's denominator silently understated both almost always, starving the
+ * HRV7/RHR7 penalties and the CV7 gate (which depends on zHRV7). [smoothedSeries] builds that SD
+ * from genuinely non-overlapping 7-reading blocks, per the spec's own "le finestre non devono
+ * sovrapporsi" (3.2) -- an earlier version used a sliding/overlapping window instead, which is
+ * autocorrelated (adjacent windows share 6 of 7 readings) and not a statistically sound variance
+ * estimate, independent of which direction that bias happened to push any one example.
  */
 object AsiEngine {
 
@@ -118,8 +123,8 @@ object AsiEngine {
 
         val hrvBaseline = baselineOf(precedingHrv, AsiConfig.HRV_SD_FLOOR)
         val rhrBaseline = baselineOf(precedingRhr, AsiConfig.RHR_SD_FLOOR)
-        val hrv7Baseline = baselineOf(smoothedSeries(preceding) { it.hrvScore }, AsiConfig.HRV_SD_FLOOR)
-        val rhr7Baseline = baselineOf(smoothedSeries(preceding) { it.rhr }, AsiConfig.RHR_SD_FLOOR)
+        val hrv7Baseline = baselineOf(smoothedSeries(preceding) { it.hrvScore }, AsiConfig.HRV_SD_FLOOR, AsiConfig.MIN_SMOOTHED_BASELINE_BLOCKS)
+        val rhr7Baseline = baselineOf(smoothedSeries(preceding) { it.rhr }, AsiConfig.RHR_SD_FLOOR, AsiConfig.MIN_SMOOTHED_BASELINE_BLOCKS)
 
         val recentWindow = listOf(today) + preceding.take(AsiConfig.SMOOTHING_WINDOW_SIZE - 1)
         val windowComplete = recentWindow.size >= AsiConfig.SMOOTHING_WINDOW_SIZE
@@ -217,26 +222,27 @@ object AsiEngine {
     internal fun clamp(x: Double, a: Double, b: Double): Double = min(max(x, a), b)
 
     /**
-     * Historical series of trailing 7-reading averages: for each position in
-     * [precedingNewestFirst] that has a full window of 6 further (older) readings available
-     * within the list itself, its own [valueOf]-averaged value -- the exact same computation
-     * [compute] uses for today's own `hrv7`/`rhr7`, just applied at every earlier position too.
-     * This is what [AsiContext.zHrv7]/`zRhr7` are scored against, instead of the raw daily
-     * series' own (wider) SD -- see this object's class doc comment for why that distinction
-     * matters.
+     * Historical reference series for the smoothed (HRV7/RHR7) z-scores: [precedingNewestFirst]
+     * split into consecutive, genuinely NON-overlapping 7-reading blocks -- block 0 is the 7 most
+     * recent preceding readings, block 1 the next 7 older ones, and so on -- each averaged with
+     * [valueOf]. Non-overlapping per the spec's own "le finestre non devono sovrapporsi" (3.2):
+     * sliding the window by 1 reading at a time instead would make adjacent points share 6 of
+     * their 7 readings, an autocorrelated series that isn't a statistically sound basis for a
+     * variance estimate. A partial trailing block (fewer than 7 readings left) is dropped rather
+     * than averaged short, same as [AsiConfig.BASELINE_WINDOW_SIZE] capping the daily baseline.
      */
     private fun smoothedSeries(precedingNewestFirst: List<AsiReading>, valueOf: (AsiReading) -> Double): List<Double> {
-        val n = precedingNewestFirst.size
-        if (n < AsiConfig.SMOOTHING_WINDOW_SIZE) return emptyList()
-        return (0..(n - AsiConfig.SMOOTHING_WINDOW_SIZE)).map { i ->
-            precedingNewestFirst.subList(i, i + AsiConfig.SMOOTHING_WINDOW_SIZE).map(valueOf).average()
+        val blockCount = precedingNewestFirst.size / AsiConfig.SMOOTHING_WINDOW_SIZE
+        return (0 until blockCount).map { block ->
+            val start = block * AsiConfig.SMOOTHING_WINDOW_SIZE
+            precedingNewestFirst.subList(start, start + AsiConfig.SMOOTHING_WINDOW_SIZE).map(valueOf).average()
         }
     }
 
     /** Sample SD (n-1 denominator), same convention as [com.hrvrm.app.hrv.HrvScoreCalculator]. Requires
-     * at least [AsiConfig.MIN_BASELINE_SAMPLES] values -- fewer than that returns null (not computed). */
-    private fun baselineOf(values: List<Double>, sdFloor: Double): Baseline? {
-        if (values.size < AsiConfig.MIN_BASELINE_SAMPLES) return null
+     * at least [minSamples] values -- fewer than that returns null (not computed). */
+    private fun baselineOf(values: List<Double>, sdFloor: Double, minSamples: Int = AsiConfig.MIN_BASELINE_SAMPLES): Baseline? {
+        if (values.size < minSamples) return null
         val mean = values.average()
         val variance = values.sumOf { (it - mean) * (it - mean) } / (values.size - 1)
         val sd = sqrt(variance).coerceAtLeast(sdFloor)
