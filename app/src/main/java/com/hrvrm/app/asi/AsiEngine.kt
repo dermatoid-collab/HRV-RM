@@ -144,10 +144,12 @@ object AsiEngine {
 
         // -- Penalties (spec 5) -- computed whenever their underlying z-score is available, independent
         // of whether the overall score ends up null, so parameter-level classification can still use them.
-        val pHrv = zHrv?.let { penalty(-it, AsiConfig.HRV_DAILY_PENALTY_START, AsiConfig.HRV_DAILY_PENALTY_FULL, AsiConfig.HRV_DAILY_PENALTY_MAX) }
-        val pHrv7 = zHrv7?.let { penalty(-it, AsiConfig.HRV7_PENALTY_START, AsiConfig.HRV7_PENALTY_FULL, AsiConfig.HRV7_PENALTY_MAX) }
-        val pRhr = zRhr?.let { penalty(it, AsiConfig.RHR_DAILY_PENALTY_START, AsiConfig.RHR_DAILY_PENALTY_FULL, AsiConfig.RHR_DAILY_PENALTY_MAX) }
-        val pRhr7 = zRhr7?.let { penalty(it, AsiConfig.RHR7_PENALTY_START, AsiConfig.RHR7_PENALTY_FULL, AsiConfig.RHR7_PENALTY_MAX) }
+        // The four main penalties use penaltySensitive (user-approved change, 2026-10-15) -- CV7 stays
+        // on the original step function below, deliberately, to isolate the change's effect.
+        val pHrv = zHrv?.let { penaltySensitive(-it, AsiConfig.HRV_DAILY_PENALTY_START, AsiConfig.HRV_DAILY_PENALTY_FULL, AsiConfig.HRV_DAILY_PENALTY_MAX) }
+        val pHrv7 = zHrv7?.let { penaltySensitive(-it, AsiConfig.HRV7_PENALTY_START, AsiConfig.HRV7_PENALTY_FULL, AsiConfig.HRV7_PENALTY_MAX) }
+        val pRhr = zRhr?.let { penaltySensitive(it, AsiConfig.RHR_DAILY_PENALTY_START, AsiConfig.RHR_DAILY_PENALTY_FULL, AsiConfig.RHR_DAILY_PENALTY_MAX) }
+        val pRhr7 = zRhr7?.let { penaltySensitive(it, AsiConfig.RHR7_PENALTY_START, AsiConfig.RHR7_PENALTY_FULL, AsiConfig.RHR7_PENALTY_MAX) }
         val cv7Gated = (zHrv != null && zHrv < AsiConfig.CV7_GATE_HRV_DAILY_Z) || (zHrv7 != null && zHrv7 < AsiConfig.CV7_GATE_HRV7_Z)
         val pCv7 = if (cv7Gated && today.cv7 != null && cv7P75 != null && cv7P95 != null) {
             penalty(today.cv7, cv7P75, cv7P95, AsiConfig.CV7_PENALTY_MAX)
@@ -215,9 +217,36 @@ object AsiEngine {
         else -> AsiStatus.MARKED_DEVIATION
     }
 
-    /** spec 5: penalty(x,start,full,maxPoints) = maxPoints x clamp((x-start)/(full-start), 0, 1). */
+    /** spec 5: penalty(x,start,full,maxPoints) = maxPoints x clamp((x-start)/(full-start), 0, 1).
+     * Still used for CV7 (deliberately left unchanged, see [compute]'s pCv7). */
     internal fun penalty(x: Double, start: Double, full: Double, maxPoints: Double): Double =
         maxPoints * clamp((x - start) / (full - start), 0.0, 1.0)
+
+    /**
+     * User-approved two-segment penalty (2026-10-15, [AsiConfig.PENALTY_SENSITIVITY_ALPHA]) used for
+     * the four main parameters (HRV daily/7, RHR daily/7) in place of [penalty]'s hard dead zone:
+     * - x <= 0 (favorable direction, or exactly on baseline): 0, same as before.
+     * - 0 < x <= start: ramps from 0 to maxPoints*alpha -- a small but non-zero penalty for any
+     *   unfavorable deviation, however small, instead of [penalty]'s flat zero in this whole range.
+     * - start < x < full: continues from maxPoints*alpha up to maxPoints -- continuous with the
+     *   segment above at x=start (both give maxPoints*alpha there), just a steeper slope.
+     * - x >= full: maxPoints, same ceiling as [penalty].
+     * Continuous everywhere (verified at x=start and x=full in [AsiEngineTest]); only the slope
+     * changes at x=start, which is fine for a penalty curve -- no continuity in the derivative is
+     * required here, same as it wasn't for the old hard dead zone.
+     */
+    internal fun penaltySensitive(
+        x: Double,
+        start: Double,
+        full: Double,
+        maxPoints: Double,
+        alpha: Double = AsiConfig.PENALTY_SENSITIVITY_ALPHA,
+    ): Double = when {
+        x <= 0.0 -> 0.0
+        x <= start -> maxPoints * alpha * (x / start)
+        x < full -> maxPoints * (alpha + (1 - alpha) * (x - start) / (full - start))
+        else -> maxPoints
+    }
 
     internal fun clamp(x: Double, a: Double, b: Double): Double = min(max(x, a), b)
 

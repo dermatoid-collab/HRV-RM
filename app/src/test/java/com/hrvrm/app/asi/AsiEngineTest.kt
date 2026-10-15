@@ -56,6 +56,49 @@ class AsiEngineTest {
         assertEquals(12.5, AsiEngine.penalty(x = 1.25, start = 0.5, full = 2.0, maxPoints = 25.0), 1e-9)
     }
 
+    // -- penaltySensitive (user-approved change, 2026-10-15): continuous two-segment replacement for
+    // the four main parameters' dead zone -- CV7 keeps using penalty() above, untouched. -----------
+
+    @Test fun penaltySensitiveIsZeroOnlyAtOrBelowZero() {
+        assertEquals(0.0, AsiEngine.penaltySensitive(x = 0.0, start = 0.5, full = 2.0, maxPoints = 25.0), 1e-9)
+        assertEquals(0.0, AsiEngine.penaltySensitive(x = -1.0, start = 0.5, full = 2.0, maxPoints = 25.0), 1e-9)
+        // Unlike penalty(), a small positive deviation already gets a non-zero penalty even though
+        // it's still well short of "start" -- this is the whole point of the change.
+        assertTrue(AsiEngine.penaltySensitive(x = 0.1, start = 0.5, full = 2.0, maxPoints = 25.0) > 0.0)
+    }
+
+    @Test fun penaltySensitiveIsContinuousAtStartAndFull() {
+        val start = 0.5
+        val full = 2.0
+        val maxPoints = 25.0
+        val alpha = AsiConfig.PENALTY_SENSITIVITY_ALPHA
+        val atStartFromBelow = AsiEngine.penaltySensitive(start, start, full, maxPoints, alpha)
+        val atStartFromAbove = AsiEngine.penaltySensitive(start + 1e-9, start, full, maxPoints, alpha)
+        assertEquals(maxPoints * alpha, atStartFromBelow, 1e-6)
+        assertEquals(atStartFromBelow, atStartFromAbove, 1e-6)
+
+        val atFull = AsiEngine.penaltySensitive(full, start, full, maxPoints, alpha)
+        assertEquals(maxPoints, atFull, 1e-9)
+        assertEquals(maxPoints, AsiEngine.penaltySensitive(full + 1.0, start, full, maxPoints, alpha), 1e-9)
+    }
+
+    @Test fun penaltySensitiveMatchesApprovedProposalWorkedExample() {
+        // The user's own worked example: deviations of 0.4 (unfavorable direction) on all four main
+        // parameters, CV7 excluded -- proposal states the old formula gives ~97, the new one ~88.
+        val pHrv = AsiEngine.penaltySensitive(0.4, AsiConfig.HRV_DAILY_PENALTY_START, AsiConfig.HRV_DAILY_PENALTY_FULL, AsiConfig.HRV_DAILY_PENALTY_MAX)
+        val pHrv7 = AsiEngine.penaltySensitive(0.4, AsiConfig.HRV7_PENALTY_START, AsiConfig.HRV7_PENALTY_FULL, AsiConfig.HRV7_PENALTY_MAX)
+        val pRhr = AsiEngine.penaltySensitive(0.4, AsiConfig.RHR_DAILY_PENALTY_START, AsiConfig.RHR_DAILY_PENALTY_FULL, AsiConfig.RHR_DAILY_PENALTY_MAX)
+        val pRhr7 = AsiEngine.penaltySensitive(0.4, AsiConfig.RHR7_PENALTY_START, AsiConfig.RHR7_PENALTY_FULL, AsiConfig.RHR7_PENALTY_MAX)
+
+        assertEquals(2.4, pHrv, 1e-6)
+        assertEquals(3.8667, pHrv7, 1e-3)
+        assertEquals(2.4, pRhr, 1e-6)
+        assertEquals(3.8667, pRhr7, 1e-3)
+
+        val score = 100.0 - (pHrv + pHrv7 + pRhr + pRhr7)
+        assertTrue("expected score around 87-88, got $score", score in 87.0..88.0)
+    }
+
     @Test fun clampRespectsBothBounds() {
         assertEquals(0.0, AsiEngine.clamp(-5.0, 0.0, 100.0), 1e-9)
         assertEquals(100.0, AsiEngine.clamp(500.0, 0.0, 100.0), 1e-9)

@@ -21,7 +21,7 @@ package com.hrvrm.app.asi
  * (see AsiEngine.smoothedSeries), per the spec's own "le finestre non devono sovrapporsi".
  */
 object AsiConfig {
-    const val VERSION = "hrvrm-asi-1.0"
+    const val VERSION = "hrvrm-asi-1.1"
 
     /** Same baseline window HrvScoreCalculator.BASELINE_WINDOW_SIZE already uses. */
     const val BASELINE_WINDOW_SIZE = 60
@@ -76,6 +76,20 @@ object AsiConfig {
     const val CV7_PENALTY_MAX = 10.0
     const val CV7_GATE_HRV_DAILY_Z = -0.5
     const val CV7_GATE_HRV7_Z = -0.3
+
+    /**
+     * User-approved change (2026-10-15, "ASI v1.8" in the user's own proposal): the four main
+     * penalties (HRV daily/7, RHR daily/7 -- CV7 is deliberately left on the old step function, to
+     * isolate the effect) no longer have a hard zero-penalty dead zone between 0 and [*_PENALTY_START].
+     * Instead, a deviation that's favorable or exactly zero still gets 0, but ANY unfavorable
+     * deviation above zero gets at least a small, continuously-scaling penalty -- a deviation that
+     * exactly reaches the old "start" threshold now receives this fraction of that penalty's max
+     * (12% by default) rather than 0, addressing the old formula's tendency to flatten scores at
+     * 100 for genuinely stable (but not perfectly flat) personal physiology. See
+     * [AsiEngine.penaltySensitive]. Explicitly experimental, like every other constant in this file
+     * -- not a physiologically validated figure.
+     */
+    const val PENALTY_SENSITIVITY_ALPHA = 0.12
 
     // -- Main ASI status bands (score is null outside FAVORABLE..MARKED_DEVIATION) --
     const val FAVORABLE_MIN = 85
