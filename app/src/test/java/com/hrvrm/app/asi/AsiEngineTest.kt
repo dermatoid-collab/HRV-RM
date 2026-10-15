@@ -69,6 +69,47 @@ class AsiEngineTest {
         assertEquals(28.55, AsiEngine.percentile(sorted, 0.95), 1e-9)
     }
 
+    /**
+     * Same shape as [healthyPreceding] but with a wider day-to-day HRV swing (11.0/7.0 instead of
+     * 9.5/8.5) -- the raw daily series' own SD is much larger here, while the 7-reading trailing
+     * average's SD stays comparatively tight (averaging damps the alternation). Built specifically
+     * to exercise the zHRV7 regression below: a real, meaningful dip in the smoothed HRV7 value
+     * should register as a smoothed-HRV7 deviation scored against the smoothed series' own
+     * (tighter) variance, not get diluted by the much wider daily-reading variance.
+     */
+    private fun wideSwingPreceding(): List<AsiReading> = (0 until 60).map { i ->
+        AsiReading(
+            timestampEpochMs = -((i + 1) * DAY_MS),
+            hrvScore = if (i % 2 == 0) 11.0 else 7.0,
+            rhr = 50.0,
+            cv7 = if (i < 30) (i + 1).toDouble() else null,
+        )
+    }
+
+    // -- Regression: zHRV7/zRHR7 must be scored against the smoothed series' own variance, not the
+    // daily series' wider one (a real bug: it silently zeroed out almost every HRV7/RHR7 penalty,
+    // pushing scores to 100 far more often than the underlying data warranted). ---------------------
+
+    @Test fun smoothedHrv7DeviationIsPenalizedEvenWhenDailyVarianceIsWide() {
+        // today=6.0 pulls hrv7 to (6+11+7+11+7+11+7)/7 = 60/7 ≈ 8.571 -- a real ~0.43 dip below the
+        // smoothed series' own mean of 9.0, but tiny next to the raw daily swing's own SD (~2.0).
+        // Scored against the daily SD, this z-score would be far too small to cross the HRV7
+        // penalty's own 0.3 "start" threshold at all -- see the old formula's result below.
+        val result = AsiEngine.compute(AsiInput(healthyToday(hrvScore = 6.0), wideSwingPreceding()))
+        val pHrv7 = result.penalties.hrv7
+        assertTrue("expected a real HRV7 penalty, got $pHrv7", pHrv7 != null && pHrv7 > 10.0)
+
+        // What the old (reverted) formula would have computed, for comparison: dividing the exact
+        // same ~0.43 deviation by the much wider *daily* SD instead of the smoothed series' own.
+        val dailyMean = wideSwingPreceding().map { it.hrvScore }.average()
+        val dailyVariance = wideSwingPreceding().sumOf { (it.hrvScore - dailyMean) * (it.hrvScore - dailyMean) } / 59
+        val dailySd = kotlin.math.sqrt(dailyVariance)
+        val hrv7Today = (6.0 + 11.0 + 7.0 + 11.0 + 7.0 + 11.0 + 7.0) / 7.0
+        val zUsingDailySd = (hrv7Today - dailyMean) / dailySd
+        val oldPenalty = AsiEngine.penalty(-zUsingDailySd, AsiConfig.HRV7_PENALTY_START, AsiConfig.HRV7_PENALTY_FULL, AsiConfig.HRV7_PENALTY_MAX)
+        assertEquals(0.0, oldPenalty, 1e-9) // confirms this really would have been missed before the fix
+    }
+
     // -- Item 8: all main ASI status bands, item 7: 0-100 limits ------------------------------------
 
     @Test fun healthyInputScoresMaximumAndFavorable() {

@@ -79,10 +79,13 @@ internal data class AsiContext(
  * classification, the ten interpretive combinations, confidence and the synthetic comment are
  * [AsiInterpretation]'s job (spec 16.C) -- this object only produces the numbers that layer classifies.
  *
- * Deliberate simplification (user-confirmed): every z-score below -- daily and 7-reading-smoothed
- * alike -- is computed against the SAME up-to-[AsiConfig.BASELINE_WINDOW_SIZE]-reading baseline
- * mean/SD per metric (HRV, RHR), rather than the spec's separate non-overlapping reference-window
- * statistics for the smoothed variant (spec 3.2/3.4). Fewer moving parts, one baseline per metric.
+ * Deliberate simplification (user-confirmed): both the daily and the 7-reading-smoothed z-scores
+ * for a metric are computed from the SAME up-to-[AsiConfig.BASELINE_WINDOW_SIZE] pooled window of
+ * preceding readings, rather than the spec's separate non-overlapping reference windows (spec
+ * 3.2/3.4) -- one window per metric instead of two. Within that shared window, the daily and
+ * smoothed variants still each get their OWN mean/SD (see [smoothedSeries]): a 7-reading average
+ * has naturally lower variance than a single reading, so dividing its deviation by the single-
+ * reading SD used for the daily z-score would systematically understate it.
  */
 object AsiEngine {
 
@@ -115,6 +118,8 @@ object AsiEngine {
 
         val hrvBaseline = baselineOf(precedingHrv, AsiConfig.HRV_SD_FLOOR)
         val rhrBaseline = baselineOf(precedingRhr, AsiConfig.RHR_SD_FLOOR)
+        val hrv7Baseline = baselineOf(smoothedSeries(preceding) { it.hrvScore }, AsiConfig.HRV_SD_FLOOR)
+        val rhr7Baseline = baselineOf(smoothedSeries(preceding) { it.rhr }, AsiConfig.RHR_SD_FLOOR)
 
         val recentWindow = listOf(today) + preceding.take(AsiConfig.SMOOTHING_WINDOW_SIZE - 1)
         val windowComplete = recentWindow.size >= AsiConfig.SMOOTHING_WINDOW_SIZE
@@ -128,9 +133,9 @@ object AsiEngine {
         val cv7P95 = if (cv7Sorted.size >= AsiConfig.MIN_BASELINE_SAMPLES) percentile(cv7Sorted, 0.95) else null
 
         val zHrv = hrvBaseline?.let { (today.hrvScore - it.mean) / it.sd }
-        val zHrv7 = if (hrvBaseline != null && hrv7 != null) (hrv7 - hrvBaseline.mean) / hrvBaseline.sd else null
+        val zHrv7 = if (hrv7Baseline != null && hrv7 != null) (hrv7 - hrv7Baseline.mean) / hrv7Baseline.sd else null
         val zRhr = rhrBaseline?.let { (today.rhr - it.mean) / it.sd }
-        val zRhr7 = if (rhrBaseline != null && rhr7 != null) (rhr7 - rhrBaseline.mean) / rhrBaseline.sd else null
+        val zRhr7 = if (rhr7Baseline != null && rhr7 != null) (rhr7 - rhr7Baseline.mean) / rhr7Baseline.sd else null
 
         // -- Penalties (spec 5) -- computed whenever their underlying z-score is available, independent
         // of whether the overall score ends up null, so parameter-level classification can still use them.
@@ -210,6 +215,23 @@ object AsiEngine {
         maxPoints * clamp((x - start) / (full - start), 0.0, 1.0)
 
     internal fun clamp(x: Double, a: Double, b: Double): Double = min(max(x, a), b)
+
+    /**
+     * Historical series of trailing 7-reading averages: for each position in
+     * [precedingNewestFirst] that has a full window of 6 further (older) readings available
+     * within the list itself, its own [valueOf]-averaged value -- the exact same computation
+     * [compute] uses for today's own `hrv7`/`rhr7`, just applied at every earlier position too.
+     * This is what [AsiContext.zHrv7]/`zRhr7` are scored against, instead of the raw daily
+     * series' own (wider) SD -- see this object's class doc comment for why that distinction
+     * matters.
+     */
+    private fun smoothedSeries(precedingNewestFirst: List<AsiReading>, valueOf: (AsiReading) -> Double): List<Double> {
+        val n = precedingNewestFirst.size
+        if (n < AsiConfig.SMOOTHING_WINDOW_SIZE) return emptyList()
+        return (0..(n - AsiConfig.SMOOTHING_WINDOW_SIZE)).map { i ->
+            precedingNewestFirst.subList(i, i + AsiConfig.SMOOTHING_WINDOW_SIZE).map(valueOf).average()
+        }
+    }
 
     /** Sample SD (n-1 denominator), same convention as [com.hrvrm.app.hrv.HrvScoreCalculator]. Requires
      * at least [AsiConfig.MIN_BASELINE_SAMPLES] values -- fewer than that returns null (not computed). */
