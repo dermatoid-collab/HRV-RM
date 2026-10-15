@@ -159,11 +159,12 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(16.dp))
 
-                    ScoreBadge(current)
+                    // HRV score (in scale) and ASI, big, side by side -- ScoreBadge itself puts
+                    // them at the top; everything else is secondary detail below.
+                    ScoreBadge(current, asi)
 
-                    // ASI value, main status, per-parameter states, synthetic comment,
-                    // exceptions and confidence -- in that order, right after the HRV score --
-                    // per spec 15.
+                    // ASI's main status, per-parameter states, synthetic comment, exceptions and
+                    // confidence -- the score number itself already showed above.
                     asi?.let {
                         Spacer(Modifier.height(16.dp))
                         AsiDetailSection(it)

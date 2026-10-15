@@ -244,7 +244,11 @@ private fun TodayDashboardContent(
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(0.65f)) {
                     Text("HRV score", style = MaterialTheme.typography.labelLarge)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Top-aligned, not centered: AsiMiniBadge is two lines (number + "ASI" label)
+                    // while this Text is one, so center-aligning them made the two numbers sit on
+                    // different baselines and crowd together -- top-aligning starts both numbers
+                    // on the same line, with only ASI's label trailing below.
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                         Text(
                             "%.1f".format(latest.altiniScaleValue),
                             fontSize = 48.sp,
@@ -817,10 +821,11 @@ private fun ResultContent(
     }
     Spacer(Modifier.height(16.dp))
 
-    ScoreBadge(measurement)
+    // HRV score (in scale) and ASI, big, side by side -- ScoreBadge itself puts them at the top.
+    ScoreBadge(measurement, asi)
 
-    // ASI value, main status, per-parameter states, synthetic comment, exceptions and
-    // confidence -- in that order, right after the HRV score -- per spec 15.
+    // ASI's main status, per-parameter states, synthetic comment, exceptions and confidence --
+    // the score number itself already showed above, next to the HRV score.
     asi?.let {
         Spacer(Modifier.height(16.dp))
         AsiDetailSection(it)
@@ -873,43 +878,44 @@ private fun ResultContent(
 }
 
 @Composable
-fun ScoreBadge(measurement: MeasurementEntity) {
+fun ScoreBadge(measurement: MeasurementEntity, asi: AsiResult? = null) {
     val altiniValueText = "%.1f".format(measurement.altiniScaleValue)
     val score = measurement.hrvScore
+    val hrvColor = when (measurement.withinNormalRange) {
+        true -> MaterialTheme.colorScheme.secondary
+        false -> MaterialTheme.colorScheme.error
+        null -> MaterialTheme.colorScheme.onSurface
+    }
 
-    if (score == null) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(altiniValueText, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-            Text("HRV (ln scale, HRV4Training-style)", style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(10.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // HRV score (in scale) and ASI, big, side by side at the top -- everything else is
+        // secondary detail below. Top-aligned: AsiMiniBadge is two lines (number + "ASI" label)
+        // while the HRV text is one, so center-aligning them would crowd the two numbers onto
+        // different baselines (same fix as the Today dashboard's identical pairing).
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(altiniValueText, fontSize = 56.sp, fontWeight = FontWeight.Bold, color = hrvColor)
+                Text("HRV score", style = MaterialTheme.typography.bodyMedium)
+            }
+            asi?.let { AsiMiniBadge(it, fontSize = 56.sp) }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (score == null) {
             Text(
                 "Building baseline: at least ${HrvScoreCalculator.MIN_BASELINE_SAMPLES} measurements " +
                     "are needed for the score and normal range.",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
             )
+            return
         }
-        return
-    }
 
-    val color = when {
-        score >= 70 -> MaterialTheme.colorScheme.primary
-        score >= 40 -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.error
-    }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            "$score",
-            fontSize = 64.sp,
-            fontWeight = FontWeight.Bold,
-            color = color,
-        )
-        Text("HRV Score", style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "$altiniValueText (ln scale, HRV4Training-style)",
+            "Score $score/100",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val low = measurement.normalRangeLowAltiniScale
         val high = measurement.normalRangeHighAltiniScale

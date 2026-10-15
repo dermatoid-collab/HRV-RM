@@ -39,16 +39,17 @@ fun AsiMiniBadge(result: AsiResult, fontSize: TextUnit, fontWeight: FontWeight =
 }
 
 /**
- * Full ASI breakdown for the daily/per-measurement screen (MeasureScreen's result view and
- * MeasurementDetailScreen both use this) -- spec 15's required top-to-bottom order from "valore
- * ASI" through "Confidence": score+status, the five parameter states, the synthetic
+ * Everything about ASI below its own score number, which is shown big at the top of the
+ * daily/per-measurement screen next to the HRV score instead (see [MeasureScreen's
+ * ScoreBadge][com.hrvrm.app.ui.measure.ScoreBadge], which both the result view and
+ * MeasurementDetailScreen use) -- main status, the five parameter states, the synthetic
  * interpretation sentence (only when one was detected -- never a generic substitute, per spec 9),
  * exceptions (only when present, per spec 15.1), then confidence.
  */
 @Composable
 fun AsiDetailSection(result: AsiResult) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        AsiScoreAndStatus(result)
+        AsiStatusChip(result)
         Spacer(Modifier.height(10.dp))
         AsiParameterStates(result)
 
@@ -81,28 +82,19 @@ fun AsiDetailSection(result: AsiResult) {
     }
 }
 
+/** Icon + status title, e.g. a check-circle and "Regolare" -- the score number itself already
+ * showed above this (see [AsiDetailSection]'s doc comment). */
 @Composable
-private fun AsiScoreAndStatus(result: AsiResult) {
+private fun AsiStatusChip(result: AsiResult) {
     val color = result.color.toComposeColor()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            result.score?.toString() ?: "—",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = color,
+        Icon(
+            asiIconFor(result.icon),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.padding(end = 6.dp),
         )
-        Column(modifier = Modifier.padding(start = 10.dp)) {
-            Text("ASI", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    asiIconFor(result.icon),
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.padding(end = 4.dp),
-                )
-                Text(result.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = color)
-            }
-        }
+        Text(result.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = color)
     }
 }
 
