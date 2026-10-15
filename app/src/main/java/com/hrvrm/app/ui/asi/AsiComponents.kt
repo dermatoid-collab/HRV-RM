@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -24,17 +25,35 @@ import com.hrvrm.app.asi.AsiResult
  * HR score, stesso font, colore diverso": [fontSize]/[fontWeight] are passed in by the caller so
  * this matches whatever HRV score text it sits next to, while the color always comes from the
  * result's own status instead of following the caller's HRV color.
+ *
+ * [labelAbove] picks which of this badge's two call sites it matches: the Today dashboard pairs
+ * it with a standalone "HRV score" label sitting *above* a bare number, so ASI's own label needs
+ * to sit above its number too, in that same [labelStyle] -- `labelAbove = true`. ScoreBadge (the
+ * daily/per-measurement screen) instead pairs it with its own HRV number+label where the label
+ * trails *below*, so ASI's label stays below there too (the default).
  */
 @Composable
-fun AsiMiniBadge(result: AsiResult, fontSize: TextUnit, fontWeight: FontWeight = FontWeight.Bold, modifier: Modifier = Modifier) {
+fun AsiMiniBadge(
+    result: AsiResult,
+    fontSize: TextUnit,
+    fontWeight: FontWeight = FontWeight.Bold,
+    labelAbove: Boolean = false,
+    labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
+    modifier: Modifier = Modifier,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        if (labelAbove) {
+            Text("ASI", style = labelStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(
             result.score?.toString() ?: "—",
             fontSize = fontSize,
             fontWeight = fontWeight,
             color = result.color.toComposeColor(),
         )
-        Text("ASI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!labelAbove) {
+            Text("ASI", style = labelStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

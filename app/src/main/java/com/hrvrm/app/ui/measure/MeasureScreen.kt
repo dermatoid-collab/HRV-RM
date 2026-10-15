@@ -243,20 +243,28 @@ private fun TodayDashboardContent(
             // 65:35 split between the HRV number and the RMSSD/Resting HR column, per spec.
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(0.65f)) {
-                    Text("HRV score", style = MaterialTheme.typography.labelLarge)
-                    // Top-aligned, not centered: AsiMiniBadge is two lines (number + "ASI" label)
-                    // while this Text is one, so center-aligning them made the two numbers sit on
-                    // different baselines and crowd together -- top-aligning starts both numbers
-                    // on the same line, with only ASI's label trailing below.
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Text(
-                            "%.1f".format(latest.altiniScaleValue),
-                            fontSize = 48.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = withinRangeColor(latest.withinNormalRange),
-                        )
+                    // HRV score and ASI each get their own "label above number" column, both
+                    // labels in the same style -- ASI's label used to trail below its number in a
+                    // smaller font, which read as mismatched next to "HRV score" sitting above.
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        Column {
+                            Text("HRV score", style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                "%.1f".format(latest.altiniScaleValue),
+                                fontSize = 48.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = withinRangeColor(latest.withinNormalRange),
+                            )
+                        }
                         // ASI next to HRV score, same font size/weight, its own status color -- spec 15.
-                        latestAsi?.let { asi -> AsiMiniBadge(asi, fontSize = 48.sp) }
+                        latestAsi?.let { asi ->
+                            AsiMiniBadge(
+                                asi,
+                                fontSize = 48.sp,
+                                labelAbove = true,
+                                labelStyle = MaterialTheme.typography.labelLarge,
+                            )
+                        }
                     }
                     val statusText = when (latest.withinNormalRange) {
                         true -> "Within range"
@@ -892,12 +900,14 @@ fun ScoreBadge(measurement: MeasurementEntity, asi: AsiResult? = null) {
         // secondary detail below. Top-aligned: AsiMiniBadge is two lines (number + "ASI" label)
         // while the HRV text is one, so center-aligning them would crowd the two numbers onto
         // different baselines (same fix as the Today dashboard's identical pairing).
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(36.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(altiniValueText, fontSize = 56.sp, fontWeight = FontWeight.Bold, color = hrvColor)
                 Text("HRV score", style = MaterialTheme.typography.bodyMedium)
             }
-            asi?.let { AsiMiniBadge(it, fontSize = 56.sp) }
+            // Same label style as "HRV score" above -- AsiMiniBadge's own default (labelSmall)
+            // read noticeably smaller and out of step with it.
+            asi?.let { AsiMiniBadge(it, fontSize = 56.sp, labelStyle = MaterialTheme.typography.bodyMedium) }
         }
 
         Spacer(Modifier.height(12.dp))
