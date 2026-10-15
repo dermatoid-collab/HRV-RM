@@ -1,6 +1,7 @@
 package com.hrvrm.app.ui.history
 
 import android.content.Intent
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,12 +35,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hrvrm.app.HrvRmApp
 import com.hrvrm.app.asi.AsiConfig
 import com.hrvrm.app.asi.AsiHistoryAdapter
@@ -59,7 +63,10 @@ import kotlinx.coroutines.launch
 
 private val detailDateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH)
 
-/** Read-only detail view for a single past measurement, opened by tapping a History row. */
+/** Read-only detail view for a single past measurement, opened by tapping a History row. Swiping
+ * left/right moves to the next/previous measurement chronologically -- handled entirely with
+ * local state (see [currentId]) rather than pushing a new back-stack entry per swipe, so the
+ * back button still returns straight to History however many swipes happened in between. */
 @Composable
 fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -68,19 +75,29 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
     val rawSampleStorage = remember { container.rawSampleStorage }
     val scope = rememberCoroutineScope()
 
-    var measurement by remember(measurementId) { mutableStateOf<MeasurementEntity?>(null) }
-    var asi by remember(measurementId) { mutableStateOf<AsiResult?>(null) }
-    var loading by remember(measurementId) { mutableStateOf(true) }
-    var uploadInProgress by remember(measurementId) { mutableStateOf(false) }
-    var hasRawData by remember(measurementId) { mutableStateOf(false) }
-    var showDeleteConfirm by remember(measurementId) { mutableStateOf(false) }
+    var currentId by remember(measurementId) { mutableStateOf(measurementId) }
+    // Newest-first, same order History shows them in -- used only to find currentId's
+    // chronological neighbors for swipe navigation.
+    val measurementsFlow = remember { repository.observeAll() }
+    val measurements by measurementsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val currentIndex = measurements.indexOfFirst { it.id == currentId }
+    // Index 0 is the most recent, so a lower index is chronologically newer ("next").
+    val nextId = measurements.getOrNull(currentIndex - 1)?.id
+    val previousId = measurements.getOrNull(currentIndex + 1)?.id
 
-    LaunchedEffect(measurementId) {
+    var measurement by remember(currentId) { mutableStateOf<MeasurementEntity?>(null) }
+    var asi by remember(currentId) { mutableStateOf<AsiResult?>(null) }
+    var loading by remember(currentId) { mutableStateOf(true) }
+    var uploadInProgress by remember(currentId) { mutableStateOf(false) }
+    var hasRawData by remember(currentId) { mutableStateOf(false) }
+    var showDeleteConfirm by remember(currentId) { mutableStateOf(false) }
+
+    LaunchedEffect(currentId) {
         loading = true
-        val current = repository.getById(measurementId)
+        val current = repository.getById(currentId)
         measurement = current
         loading = false
-        hasRawData = rawSampleStorage.hasStoredSamples(measurementId)
+        hasRawData = rawSampleStorage.hasStoredSamples(currentId)
         asi = current?.let {
             val preceding = repository.getPriorMeasurements(it.timestampEpochMs, AsiConfig.BASELINE_WINDOW_SIZE)
             AsiHistoryAdapter.compute(it, preceding)
@@ -96,7 +113,7 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
                 TextButton(onClick = {
                     showDeleteConfirm = false
                     scope.launch {
-                        repository.deleteMeasurement(measurementId)
+                        repository.deleteMeasurement(currentId)
                         onBack()
                     }
                 }) {
@@ -137,9 +154,34 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
             }
         }
 
+        val nextIdState = rememberUpdatedState(nextId)
+        val previousIdState = rememberUpdatedState(previousId)
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Swipe left -> next (newer) measurement, swipe right -> previous (older) one --
+                // pointerInput(Unit) never restarts, so the current next/previous ids are read
+                // fresh via rememberUpdatedState instead (same pattern the trend charts use for
+                // their own drag gestures).
+                .pointerInput(Unit) {
+                    var dragTotal = 0f
+                    val threshold = 80.dp.toPx()
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragTotal = 0f },
+                        onDragEnd = {
+                            if (dragTotal <= -threshold) {
+                                nextIdState.value?.let { currentId = it }
+                            } else if (dragTotal >= threshold) {
+                                previousIdState.value?.let { currentId = it }
+                            }
+                            dragTotal = 0f
+                        },
+                        onDragCancel = { dragTotal = 0f },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        dragTotal += dragAmount
+                    }
+                }
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
