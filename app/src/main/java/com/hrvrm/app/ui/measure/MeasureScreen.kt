@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -240,19 +241,26 @@ private fun TodayDashboardContent(
             HorizontalDivider()
             Spacer(Modifier.height(16.dp))
 
-            // 65:35 split between the HRV number and the RMSSD/Resting HR column, per spec.
+            // 72:28 split between the HRV number and the RMSSD/Resting HR column -- widened from
+            // the spec's original 65:35 so both big numbers below have room for 3 digits plus a
+            // decimal point (e.g. "10.4") without wrapping; RMSSD/Resting HR are short enough not
+            // to need their original share.
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(0.65f)) {
+                Column(modifier = Modifier.weight(0.72f)) {
                     // HRV score and ASI each get their own "label above number" column, both
                     // labels in the same style -- ASI's label used to trail below its number in a
                     // smaller font, which read as mismatched next to "HRV score" sitting above.
-                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                        Column {
+                    // Each number reserves a minimum width for "10.4"/"100"-sized text (3 digits
+                    // plus a decimal point) so it never gets squeezed into wrapping once HRV
+                    // reaches double digits.
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Column(modifier = Modifier.widthIn(min = 92.dp)) {
                             Text("HRV score", style = MaterialTheme.typography.labelLarge)
                             Text(
                                 "%.1f".format(latest.altiniScaleValue),
                                 fontSize = 48.sp,
                                 fontWeight = FontWeight.Bold,
+                                maxLines = 1,
                                 color = withinRangeColor(latest.withinNormalRange),
                             )
                         }
@@ -263,6 +271,7 @@ private fun TodayDashboardContent(
                                 fontSize = 48.sp,
                                 labelAbove = true,
                                 labelStyle = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.widthIn(min = 76.dp),
                             )
                         }
                     }
@@ -285,7 +294,7 @@ private fun TodayDashboardContent(
                         .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.outlineVariant),
                 )
-                Column(modifier = Modifier.weight(0.35f), horizontalAlignment = Alignment.End) {
+                Column(modifier = Modifier.weight(0.28f), horizontalAlignment = Alignment.End) {
                     CompactStat("RMSSD", "${latest.rmssdMs.roundToInt()} ms")
                     Spacer(Modifier.height(10.dp))
                     CompactStat("Resting HR", "${latest.meanHrBpm.roundToInt()} bpm")

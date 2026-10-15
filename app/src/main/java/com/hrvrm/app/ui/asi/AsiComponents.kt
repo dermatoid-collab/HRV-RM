@@ -49,6 +49,7 @@ fun AsiMiniBadge(
             result.score?.toString() ?: "—",
             fontSize = fontSize,
             fontWeight = fontWeight,
+            maxLines = 1,
             color = result.color.toComposeColor(),
         )
         if (!labelAbove) {
@@ -101,7 +102,7 @@ fun AsiDetailSection(result: AsiResult) {
     }
 }
 
-/** Icon + status title, e.g. a check-circle and "Regolare" -- the score number itself already
+/** Icon + status title, e.g. a check-circle and "Normal" -- the score number itself already
  * showed above this (see [AsiDetailSection]'s doc comment). */
 @Composable
 private fun AsiStatusChip(result: AsiResult) {
