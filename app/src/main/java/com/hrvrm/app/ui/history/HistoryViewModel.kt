@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
+import com.hrvrm.app.asi.AsiHistoryAdapter
+import com.hrvrm.app.asi.AsiResult
 import com.hrvrm.app.data.MeasurementEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +43,20 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         .observeAll()
         .map(::buildDailyRhrPoints)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Same day-per-latest-measurement rule as [dailyTrend], but for ASI -- backs the separate
+     * ASI chart (see [AsiTrendChart]). */
+    val dailyAsiTrend: StateFlow<List<DailyAsiPoint>> = container.measurementRepository
+        .observeAll()
+        .map(::buildDailyAsiPoints)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** ASI per measurement row (every reading, not deduplicated by day) -- backs each History
+     * row's inline ASI value. */
+    val asiByMeasurementId: StateFlow<Map<Long, AsiResult>> = container.measurementRepository
+        .observeAll()
+        .map(AsiHistoryAdapter::computeForEach)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _folderSyncState = MutableStateFlow(FolderSyncUiState())
     val folderSyncState: StateFlow<FolderSyncUiState> = _folderSyncState.asStateFlow()

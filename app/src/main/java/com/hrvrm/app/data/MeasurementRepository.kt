@@ -28,6 +28,12 @@ class MeasurementRepository(
 
     suspend fun getById(id: Long): MeasurementEntity? = dao.getById(id)
 
+    /** Prior readings before [beforeEpochMs], most recent first -- used by the ASI module (see
+     * [com.hrvrm.app.asi.AsiHistoryAdapter]) the same way [saveMeasurement] already uses it for
+     * the HRV score baseline. */
+    suspend fun getPriorMeasurements(beforeEpochMs: Long, limit: Int): List<MeasurementEntity> =
+        dao.getPriorMeasurements(beforeEpochMs, limit)
+
     suspend fun saveMeasurement(
         timestampEpochMs: Long,
         durationSec: Int,

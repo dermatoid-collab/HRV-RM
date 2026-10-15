@@ -83,9 +83,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hrvrm.app.asi.AsiResult
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ppg.BeatRejectionReason
+import com.hrvrm.app.ui.asi.AsiDetailSection
+import com.hrvrm.app.ui.asi.AsiMiniBadge
 import com.hrvrm.app.ui.nav.AppResumeSignal
 import com.hrvrm.app.ui.theme.MeasuringRingTrack
 import com.hrvrm.app.ui.theme.NormalRangeTrack
@@ -111,6 +114,7 @@ fun MeasureScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
+    val latestAsi by viewModel.latestAsi.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
 
@@ -156,6 +160,7 @@ fun MeasureScreen(
             is MeasureUiState.Idle, is MeasureUiState.NeedsPermission ->
                 TodayDashboardContent(
                     dashboard = dashboard,
+                    latestAsi = latestAsi,
                     onStart = ::startWithPermissionCheck,
                     onMeasurementClick = onMeasurementClick,
                     onTrendClick = onTrendClick,
@@ -175,6 +180,7 @@ fun MeasureScreen(
 
             is MeasureUiState.Result -> ResultContent(
                 state = state,
+                asi = latestAsi,
                 onNewMeasurement = viewModel::reset,
                 onRetryUpload = viewModel::retryUpload,
                 onExportRawData = viewModel::exportRawSamplesFile,
@@ -198,6 +204,7 @@ private val measureInstructions =
 @Composable
 private fun TodayDashboardContent(
     dashboard: TodayDashboard,
+    latestAsi: AsiResult?,
     onStart: () -> Unit,
     onMeasurementClick: (Long) -> Unit,
     onTrendClick: () -> Unit,
@@ -237,12 +244,16 @@ private fun TodayDashboardContent(
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(0.65f)) {
                     Text("HRV score", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        "%.1f".format(latest.altiniScaleValue),
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = withinRangeColor(latest.withinNormalRange),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "%.1f".format(latest.altiniScaleValue),
+                            fontSize = 48.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = withinRangeColor(latest.withinNormalRange),
+                        )
+                        // ASI next to HRV score, same font size/weight, its own status color -- spec 15.
+                        latestAsi?.let { asi -> AsiMiniBadge(asi, fontSize = 48.sp) }
+                    }
                     val statusText = when (latest.withinNormalRange) {
                         true -> "Within range"
                         false -> "Outside range"
@@ -786,6 +797,7 @@ private fun ProcessingContent() {
 @Composable
 private fun ResultContent(
     state: MeasureUiState.Result,
+    asi: AsiResult?,
     onNewMeasurement: () -> Unit,
     onRetryUpload: () -> Unit,
     onExportRawData: () -> Uri?,
@@ -807,7 +819,14 @@ private fun ResultContent(
 
     ScoreBadge(measurement)
 
-    Spacer(Modifier.height(24.dp))
+    // ASI value, main status, per-parameter states, synthetic comment, exceptions and
+    // confidence -- in that order, right after the HRV score -- per spec 15.
+    asi?.let {
+        Spacer(Modifier.height(16.dp))
+        AsiDetailSection(it)
+    }
+
+    Spacer(Modifier.height(16.dp))
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -7,6 +7,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.hrvrm.app.HrvRmApp
+import com.hrvrm.app.asi.AsiHistoryAdapter
+import com.hrvrm.app.asi.AsiResult
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.hrv.HrvMetricsCalculator
 import com.hrvrm.app.ppg.PpgCameraSource
@@ -103,6 +105,17 @@ class MeasurementViewModel(application: Application) : AndroidViewModel(applicat
         .observeAll()
         .map { measurements -> TodayDashboard(measurements.firstOrNull(), computeTrend7d(buildDailyPoints(measurements))) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayDashboard(null, null))
+
+    /**
+     * ASI for whichever measurement is currently the most recent -- covers both the Today
+     * dashboard's own latest reading and a just-finished measurement (saving one makes it the
+     * new "latest" in this same [observeAll] flow, so this updates to match without a separate
+     * DB round-trip). Null only while there isn't a measurement yet.
+     */
+    val latestAsi: StateFlow<AsiResult?> = container.measurementRepository
+        .observeAll()
+        .map { measurements -> measurements.firstOrNull()?.let { AsiHistoryAdapter.compute(it, measurements.drop(1)) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     init {
         cameraSource.onSample = { sample -> if (collecting) samples.add(sample) }

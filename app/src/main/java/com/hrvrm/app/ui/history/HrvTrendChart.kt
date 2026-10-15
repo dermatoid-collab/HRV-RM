@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
@@ -193,20 +192,6 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .aspectRatio(2.5f),
         )
-
-        // CV7 is always overlaid on the HRV line above (no switch -- see its doc comment: it's
-        // a second signal, not an alternative view), so a tiny legend is the one place that
-        // needs to say so once two lines share the same chart.
-        if (hasCv7) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                LegendSwatch(bar = true, label = if (effectiveMetric == TrendMetric.SCORE) "HRV score %" else "HRV score (ln scale)")
-                LegendSwatch(dashed = true, label = "CV7 variability (%)", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
     }
 }
 
@@ -215,33 +200,6 @@ private fun MetricToggle(metric: TrendMetric, onChange: (TrendMetric) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(CHIP_GAP)) {
         ToggleChip("HRV score", metric == TrendMetric.LN_SCALE) { onChange(TrendMetric.LN_SCALE) }
         ToggleChip("Score %", metric == TrendMetric.SCORE) { onChange(TrendMetric.SCORE) }
-    }
-}
-
-@Composable
-private fun LegendSwatch(
-    label: String,
-    dashed: Boolean = false,
-    bar: Boolean = false,
-    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Canvas(modifier = Modifier.width(16.dp).height(8.dp)) {
-            if (bar) {
-                drawRoundRect(color = color, size = size, cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()))
-            } else {
-                val y = size.height / 2f
-                drawLine(
-                    color = color,
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = 2.dp.toPx(),
-                    cap = StrokeCap.Round,
-                    pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(5f, 4f)) else null,
-                )
-            }
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

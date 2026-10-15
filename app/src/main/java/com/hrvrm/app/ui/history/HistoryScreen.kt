@@ -37,7 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hrvrm.app.asi.AsiResult
 import com.hrvrm.app.data.MeasurementEntity
+import com.hrvrm.app.ui.asi.toComposeColor
 import com.hrvrm.app.ui.theme.RhrBandOverlay
 import java.time.Instant
 import java.time.ZoneId
@@ -59,6 +61,8 @@ fun HistoryScreen(
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
     val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
     val dailyRhrTrend by viewModel.dailyRhrTrend.collectAsStateWithLifecycle()
+    val dailyAsiTrend by viewModel.dailyAsiTrend.collectAsStateWithLifecycle()
+    val asiByMeasurementId by viewModel.asiByMeasurementId.collectAsStateWithLifecycle()
     val folderSyncState by viewModel.folderSyncState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
@@ -96,6 +100,19 @@ fun HistoryScreen(
             }
         }
 
+        if (dailyAsiTrend.size >= 2) {
+            // Separate card, not overlaid on the HRV chart above -- spec 15.1: ASI's fixed
+            // 0-100 scale and HRV's floating ln-scale domain don't share an axis cleanly.
+            // Border follows today's own ASI status, unlike the HRV/RHR cards' fixed borders,
+            // since ASI's color is inherently status-dependent rather than a single accent.
+            OutlinedCard(
+                border = BorderStroke(1.dp, dailyAsiTrend.last().result.color.toComposeColor()),
+                modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp),
+            ) {
+                AsiTrendChart(dailyAsiTrend, modifier = Modifier.padding(10.dp))
+            }
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -106,6 +123,7 @@ fun HistoryScreen(
                 HistoryRow(
                     measurement,
                     rhrStatus = rhrStatusFor(measurement, dailyRhrTrend),
+                    asi = asiByMeasurementId[measurement.id],
                     onClick = { onMeasurementClick(measurement.id) },
                 )
             }
@@ -182,7 +200,7 @@ private fun rhrStatusFor(measurement: MeasurementEntity, dailyRhrTrend: List<Dai
 }
 
 @Composable
-private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onClick: () -> Unit) {
+private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, asi: AsiResult?, onClick: () -> Unit) {
     OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -215,6 +233,14 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, onCl
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    asi?.let {
+                        Text(
+                            " · ASI ${it.score ?: "—"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = it.color.toComposeColor(),
                         )
                     }
                 }

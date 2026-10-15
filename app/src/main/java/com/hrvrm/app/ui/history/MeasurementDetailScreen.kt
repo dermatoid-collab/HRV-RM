@@ -41,7 +41,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hrvrm.app.HrvRmApp
+import com.hrvrm.app.asi.AsiConfig
+import com.hrvrm.app.asi.AsiHistoryAdapter
+import com.hrvrm.app.asi.AsiResult
 import com.hrvrm.app.data.MeasurementEntity
+import com.hrvrm.app.ui.asi.AsiDetailSection
 import com.hrvrm.app.ui.measure.MetricRow
 import com.hrvrm.app.ui.measure.ScoreBadge
 import com.hrvrm.app.ui.measure.UploadStatus
@@ -65,6 +69,7 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     var measurement by remember(measurementId) { mutableStateOf<MeasurementEntity?>(null) }
+    var asi by remember(measurementId) { mutableStateOf<AsiResult?>(null) }
     var loading by remember(measurementId) { mutableStateOf(true) }
     var uploadInProgress by remember(measurementId) { mutableStateOf(false) }
     var hasRawData by remember(measurementId) { mutableStateOf(false) }
@@ -72,9 +77,14 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
 
     LaunchedEffect(measurementId) {
         loading = true
-        measurement = repository.getById(measurementId)
+        val current = repository.getById(measurementId)
+        measurement = current
         loading = false
         hasRawData = rawSampleStorage.hasStoredSamples(measurementId)
+        asi = current?.let {
+            val preceding = repository.getPriorMeasurements(it.timestampEpochMs, AsiConfig.BASELINE_WINDOW_SIZE)
+            AsiHistoryAdapter.compute(it, preceding)
+        }
     }
 
     if (showDeleteConfirm) {
@@ -151,7 +161,15 @@ fun MeasurementDetailScreen(measurementId: Long, onBack: () -> Unit) {
 
                     ScoreBadge(current)
 
-                    Spacer(Modifier.height(24.dp))
+                    // ASI value, main status, per-parameter states, synthetic comment,
+                    // exceptions and confidence -- in that order, right after the HRV score --
+                    // per spec 15.
+                    asi?.let {
+                        Spacer(Modifier.height(16.dp))
+                        AsiDetailSection(it)
+                    }
+
+                    Spacer(Modifier.height(16.dp))
 
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
