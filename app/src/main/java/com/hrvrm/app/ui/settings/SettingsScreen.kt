@@ -1,10 +1,18 @@
 package com.hrvrm.app.ui.settings
 
+import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
 import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.hrvrm.app.BuildConfig
 import com.hrvrm.app.ui.nav.AppResumeSignal
 import com.hrvrm.app.ui.theme.AutoThemeMode
@@ -24,6 +32,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -37,15 +46,22 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -196,6 +212,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 Text("Reminder time: %02d:%02d".format(state.measurementReminderHour, state.measurementReminderMinute))
             }
         }
+
+        NotificationPermissionWarning()
 
         HorizontalDivider()
 
@@ -396,115 +414,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
             fontWeight = FontWeight.Bold,
         )
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                "• Baseline (HRV baseline, 7-reading avg) — rolling average of the last 7 " +
-                    "HRV score readings; more stable than the day's own value.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• Building baseline — shown when there aren't yet enough past readings " +
-                    "(minimum 3) to compute a reliable normal range.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• CV7 — Coefficient of Variation: 100 × SD / Mean of the last 7 ln(RMSSD) " +
-                    "readings. Tracks week-to-week autonomic response instability.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• HRV — Heart Rate Variability.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• HRV score — the main value shown (e.g. \"10.0\"): today's own " +
-                    "2 × ln(RMSSD), unsmoothed, on an HRV4Training-style log scale.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• IBI — Inter-Beat Interval: time between two consecutive heartbeats " +
-                    "(same as RR).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• ln scale — logarithmic scale: marks a chart as showing HRV score " +
-                    "rather than Score %.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• Normal range — the band (±1 SD over the last 60 readings) a reading " +
-                    "is compared against.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• Outside range — today's reading falls outside your personal normal range.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• pNN50 — percentage of consecutive beat-to-beat differences greater " +
-                    "than 50ms.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• PPG — Photoplethysmography: the camera + flash measurement technique " +
-                    "this app uses.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• RHR — Resting Heart Rate.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• RMSSD — Root Mean Square of Successive Differences between " +
-                    "consecutive beats.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• Score % — HRV score rescaled to 0-100 (your own z-score × 20 + 50), " +
-                    "for an easier-to-read trend line.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• SD1 — Poincaré plot short-term (beat-to-beat) variability.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• SD2 — Poincaré plot long-term variability.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• SDNN — Standard Deviation of NN intervals: the spread of all " +
-                    "beat-to-beat intervals in a measurement.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• Stress index — Baevsky's Stress Index, a measure of autonomic " +
-                    "nervous system \"rigidity\".",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "• Within range — today's reading falls inside your personal normal range.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        SelectionContainer {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                glossaryEntries.forEach { (term, definition) -> GlossaryEntry(term, definition) }
+            }
         }
 
         HorizontalDivider()
@@ -613,5 +526,106 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 TextButton(onClick = viewModel::cancelImport) { Text("Cancel") }
             },
         )
+    }
+}
+
+/** Every abbreviation and named value shown anywhere in the app, alphabetical. Term and
+ * definition split apart (rather than one literal string per row) so the term alone -- not
+ * the dash or the definition that follows it -- renders bold; see [GlossaryEntry]. */
+private val glossaryEntries = listOf(
+    "Baseline (HRV baseline, 7-reading avg)" to
+        "rolling average of the last 7 HRV score readings; more stable than the day's own value.",
+    "Building baseline" to
+        "shown when there aren't yet enough past readings (minimum 3) to compute a reliable normal range.",
+    "CV7" to
+        "Coefficient of Variation: 100 × SD / Mean of the last 7 ln(RMSSD) readings. Tracks " +
+            "week-to-week autonomic response instability.",
+    "HRV" to "Heart Rate Variability.",
+    "HRV score" to
+        "the main value shown (e.g. \"10.0\"): today's own 2 × ln(RMSSD), unsmoothed, on an " +
+            "HRV4Training-style log scale.",
+    "IBI" to "Inter-Beat Interval: time between two consecutive heartbeats (same as RR).",
+    "ln scale" to "logarithmic scale: marks a chart as showing HRV score rather than Score %.",
+    "Normal range" to "the band (±1 SD over the last 60 readings) a reading is compared against.",
+    "Outside range" to "today's reading falls outside your personal normal range.",
+    "pNN50" to "percentage of consecutive beat-to-beat differences greater than 50ms.",
+    "PPG" to "Photoplethysmography: the camera + flash measurement technique this app uses.",
+    "RHR" to "Resting Heart Rate.",
+    "RMSSD" to "Root Mean Square of Successive Differences between consecutive beats.",
+    "Score %" to
+        "HRV score rescaled to 0-100 (your own z-score × 20 + 50), for an easier-to-read trend line.",
+    "SD1" to "Poincaré plot short-term (beat-to-beat) variability.",
+    "SD2" to "Poincaré plot long-term variability.",
+    "SDNN" to
+        "Standard Deviation of NN intervals: the spread of all beat-to-beat intervals in a measurement.",
+    "Stress index" to "Baevsky's Stress Index, a measure of autonomic nervous system \"rigidity\".",
+    "Within range" to "today's reading falls inside your personal normal range.",
+)
+
+@Composable
+private fun GlossaryEntry(term: String, definition: String) {
+    Text(
+        buildAnnotatedString {
+            append("• ")
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(term) }
+            append(" — ")
+            append(definition)
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * Both reminders (daily measurement, weekly backup) post through POST_NOTIFICATIONS
+ * (Android 13+) -- if it's denied, they silently never show, with no error anywhere, which
+ * is exactly what "the reminder never arrives" looks like from the outside. Android only
+ * offers its own request dialog once automatically; after a denial it won't ask again, so
+ * this is the self-service way back in, deep-linking straight to this app's notification
+ * settings rather than a generic request that may do nothing. Rechecked on every resume
+ * (e.g. coming back from that settings screen) so the warning clears itself once granted.
+ */
+@Composable
+private fun NotificationPermissionWarning() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    fun isGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+
+    var granted by remember { mutableStateOf(isGranted()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) granted = isGranted()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (granted) return
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Notifications are off", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+            Text(
+                "Reminders can't show without this -- Android won't ask again on its own once denied.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        OutlinedButton(onClick = {
+            AppResumeSignal.suppressNextResume = true
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                },
+            )
+        }) {
+            Text("Enable")
+        }
     }
 }
