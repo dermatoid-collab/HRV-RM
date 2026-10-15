@@ -27,9 +27,15 @@ object AsiConfig {
     const val SMOOTHING_WINDOW_SIZE = 7
 
     // -- Data-availability gates --
-    const val MIN_PRECEDING_READINGS = 30
+    // Lowered from the spec's own 30/28 (user-requested, 2026-10-15): with real daily use and
+    // CV7 only populating from each reading's own 3rd sample onward, 30 preceding + 28 historical
+    // CV7 values meant ASI stayed in CALIBRATING for 5-6+ weeks before ever showing a first score
+    // -- longer than felt useful. 14/10 is still enough for a baseline mean/SD and a handful of
+    // CV7 percentile points, at the cost of a less statistically representative early baseline
+    // (see Confidence, which reports exactly that -- MODERATE, not HIGH, until 60 readings exist).
+    const val MIN_PRECEDING_READINGS = 14
     const val MIN_BASELINE_SAMPLES = 3
-    const val MIN_CV7_HISTORICAL_VALUES = 28
+    const val MIN_CV7_HISTORICAL_VALUES = 10
     const val MAX_RECENT_WINDOW_SPAN_DAYS = 10
 
     // -- Numerical floors for z-score denominators -- experimental guards, not physiological
