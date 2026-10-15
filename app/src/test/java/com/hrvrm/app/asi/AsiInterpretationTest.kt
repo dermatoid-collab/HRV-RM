@@ -98,13 +98,13 @@ class AsiInterpretationTest {
     // -- Item 10: status/icon/color consistency, pinned exactly against the spec's own tables -------
 
     @Test fun mainStatusIconColorMatchesSpecTable() {
-        assertEquals(Triple("circle-check", AsiColor.SUCCESS, "Regolare"), Triple(AsiStatus.FAVORABLE.icon, AsiStatus.FAVORABLE.color, AsiStatus.FAVORABLE.label))
-        assertEquals(Triple("info", AsiColor.INFO, "Lievi scostamenti"), Triple(AsiStatus.MILD_DEVIATION.icon, AsiStatus.MILD_DEVIATION.color, AsiStatus.MILD_DEVIATION.label))
-        assertEquals(Triple("triangle-alert", AsiColor.WARNING, "Attenzione"), Triple(AsiStatus.CAUTION.icon, AsiStatus.CAUTION.color, AsiStatus.CAUTION.label))
-        assertEquals(Triple("octagon-alert", AsiColor.DANGER, "Scostamenti marcati"), Triple(AsiStatus.MARKED_DEVIATION.icon, AsiStatus.MARKED_DEVIATION.color, AsiStatus.MARKED_DEVIATION.label))
-        assertEquals(Triple("hourglass", AsiColor.MUTED, "Calibrazione"), Triple(AsiStatus.CALIBRATING.icon, AsiStatus.CALIBRATING.color, AsiStatus.CALIBRATING.label))
-        assertEquals(Triple("circle-help", AsiColor.MUTED, "Dati insufficienti"), Triple(AsiStatus.INSUFFICIENT_DATA.icon, AsiStatus.INSUFFICIENT_DATA.color, AsiStatus.INSUFFICIENT_DATA.label))
-        assertEquals(Triple("calendar-clock", AsiColor.MUTED, "Dati non recenti"), Triple(AsiStatus.STALE_WINDOW.icon, AsiStatus.STALE_WINDOW.color, AsiStatus.STALE_WINDOW.label))
+        assertEquals(Triple("circle-check", AsiColor.SUCCESS, "Normal"), Triple(AsiStatus.FAVORABLE.icon, AsiStatus.FAVORABLE.color, AsiStatus.FAVORABLE.label))
+        assertEquals(Triple("info", AsiColor.INFO, "Mild deviation"), Triple(AsiStatus.MILD_DEVIATION.icon, AsiStatus.MILD_DEVIATION.color, AsiStatus.MILD_DEVIATION.label))
+        assertEquals(Triple("triangle-alert", AsiColor.WARNING, "Caution"), Triple(AsiStatus.CAUTION.icon, AsiStatus.CAUTION.color, AsiStatus.CAUTION.label))
+        assertEquals(Triple("octagon-alert", AsiColor.DANGER, "Marked deviation"), Triple(AsiStatus.MARKED_DEVIATION.icon, AsiStatus.MARKED_DEVIATION.color, AsiStatus.MARKED_DEVIATION.label))
+        assertEquals(Triple("hourglass", AsiColor.MUTED, "Calibrating"), Triple(AsiStatus.CALIBRATING.icon, AsiStatus.CALIBRATING.color, AsiStatus.CALIBRATING.label))
+        assertEquals(Triple("circle-help", AsiColor.MUTED, "Insufficient data"), Triple(AsiStatus.INSUFFICIENT_DATA.icon, AsiStatus.INSUFFICIENT_DATA.color, AsiStatus.INSUFFICIENT_DATA.label))
+        assertEquals(Triple("calendar-clock", AsiColor.MUTED, "Stale data"), Triple(AsiStatus.STALE_WINDOW.icon, AsiStatus.STALE_WINDOW.color, AsiStatus.STALE_WINDOW.label))
     }
 
     @Test fun parameterResultCarriesTheClassifiedEnumsOwnIconAndColor() {
@@ -126,7 +126,7 @@ class AsiInterpretationTest {
     @Test fun combo01PersistentConcordantSignals() {
         val r = AsiInterpretation.build(context(zHrv7 = -1.0, zRhr7 = 1.0))
         assertTrue(r.detectedCombinations.contains(AsiCombination.COMBO_01))
-        assertEquals("HRV7 ridotta e RHR7 elevata: segnali concordanti.", AsiCombination.COMBO_01.comment)
+        assertEquals("Reduced HRV7 and elevated RHR7: concordant signals.", AsiCombination.COMBO_01.comment)
     }
 
     @Test fun combo02IsolatedAcuteHrvDrop() {

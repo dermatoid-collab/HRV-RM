@@ -81,39 +81,39 @@ fun AsiColor.toComposeColor(): Color = when (this) {
  * Human-readable label for a parameter's [com.hrvrm.app.asi.AsiParameterResult.statusName] --
  * shared across all five parameters since the underlying per-parameter enums (HrvDailyStatus,
  * Cv7Status, etc.) and [com.hrvrm.app.asi.AsiMissingReason] reuse several of the same constant
- * names. Italian, matching every other ASI-specific string the spec itself mandates verbatim
- * ([com.hrvrm.app.asi.AsiStatus.label]/`baseComment`, [com.hrvrm.app.asi.AsiCombination.comment],
- * [com.hrvrm.app.asi.AsiParameterKey.label]) -- unlike those, the per-status words here aren't
- * literally given by the spec, so this is this module's own wording, kept in the same language
- * as the rest of ASI's screen rather than switching to this app's otherwise-English copy. Used
- * both as the visible detail-screen text and as each icon's accessibility content description
- * (spec 15.1's "Mantenere etichette accessibili per tutte le icone").
+ * names. English, per the user's 2026-10-15 approval (see CLAUDE.md) -- these per-status words
+ * aren't literally given by the spec (unlike [com.hrvrm.app.asi.AsiStatus.label]/`baseComment`,
+ * [com.hrvrm.app.asi.AsiCombination.comment] and [com.hrvrm.app.asi.AsiParameterKey.label], which
+ * are translated from the spec's own fixed Italian text), so this module's own wording was free to
+ * switch to match the rest of this app's English copy. Used both as the visible detail-screen text
+ * and as each icon's accessibility content description (spec 15.1's "Mantenere etichette
+ * accessibili per tutte le icone").
  */
 fun asiParameterStatusLabel(statusName: String): String = when (statusName) {
-    "LOW" -> "Bassa"
-    "NORMAL" -> "Normale"
-    "HIGH" -> "Alta"
-    "VERY_HIGH" -> "Molto alta"
-    "UNUSUAL_HIGH" -> "Insolitamente alta"
-    "UNUSUAL_LOW" -> "Insolitamente bassa"
-    "MISSING" -> "Assente"
-    "INSUFFICIENT_HISTORY" -> "Storico insufficiente"
-    "STALE" -> "Non recente"
-    "UNAVAILABLE" -> "Non disponibile"
+    "LOW" -> "Low"
+    "NORMAL" -> "Normal"
+    "HIGH" -> "High"
+    "VERY_HIGH" -> "Very high"
+    "UNUSUAL_HIGH" -> "Unusually high"
+    "UNUSUAL_LOW" -> "Unusually low"
+    "MISSING" -> "Missing"
+    "INSUFFICIENT_HISTORY" -> "Insufficient history"
+    "STALE" -> "Not recent"
+    "UNAVAILABLE" -> "Not available"
     else -> statusName
 }
 
 /** Spec 10.1: informational only, never shown as a substitute for the main status or score. Reuses
- * COMBO_07's own comment text verbatim -- same underlying idea ("an unusual reading isn't
- * automatically a good one"), already given by the spec in exactly these words. */
+ * COMBO_07's own (translated) comment text verbatim -- same underlying idea ("an unusual reading
+ * isn't automatically a good one"), already given by the spec in exactly these words. */
 fun asiExceptionLabel(exception: AsiException): String = when (exception) {
-    AsiException.UNUSUAL_RESPONSE -> "Risposta autonomica insolita: non equivale automaticamente a recupero superiore."
+    AsiException.UNUSUAL_RESPONSE -> "Unusual autonomic response: not automatically superior recovery."
 }
 
 /** Spec 12: describes only the historical data's statistical representativeness. */
 fun asiConfidenceLabel(status: AsiConfidenceStatus): String = when (status) {
-    AsiConfidenceStatus.HIGH -> "Alta"
-    AsiConfidenceStatus.MODERATE -> "Moderata"
-    AsiConfidenceStatus.LOW -> "Bassa"
-    AsiConfidenceStatus.UNAVAILABLE -> "Non disponibile"
+    AsiConfidenceStatus.HIGH -> "High"
+    AsiConfidenceStatus.MODERATE -> "Moderate"
+    AsiConfidenceStatus.LOW -> "Low"
+    AsiConfidenceStatus.UNAVAILABLE -> "Not available"
 }

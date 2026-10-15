@@ -17,13 +17,13 @@ enum class AsiColor { SUCCESS, INFO, WARNING, DANGER, MUTED, UNUSUAL }
  * confusion -- see spec 4's "Precedenza degli stati senza punteggio" and 10.3).
  */
 enum class AsiStatus(val icon: String, val color: AsiColor, val label: String, val baseComment: String) {
-    FAVORABLE("circle-check", AsiColor.SUCCESS, "Regolare", "Profilo autonomico complessivamente regolare."),
-    MILD_DEVIATION("info", AsiColor.INFO, "Lievi scostamenti", "Lievi scostamenti dal profilo abituale."),
-    CAUTION("triangle-alert", AsiColor.WARNING, "Attenzione", "Scostamenti autonomici che richiedono attenzione."),
-    MARKED_DEVIATION("octagon-alert", AsiColor.DANGER, "Scostamenti marcati", "Scostamenti autonomici marcati."),
-    CALIBRATING("hourglass", AsiColor.MUTED, "Calibrazione", "Calibrazione in corso: storico insufficiente."),
-    INSUFFICIENT_DATA("circle-help", AsiColor.MUTED, "Dati insufficienti", "Dati insufficienti per calcolare ASI."),
-    STALE_WINDOW("calendar-clock", AsiColor.MUTED, "Dati non recenti", "Ultime sette letture non sufficientemente recenti."),
+    FAVORABLE("circle-check", AsiColor.SUCCESS, "Normal", "Overall normal autonomic profile."),
+    MILD_DEVIATION("info", AsiColor.INFO, "Mild deviation", "Mild deviations from the usual profile."),
+    CAUTION("triangle-alert", AsiColor.WARNING, "Caution", "Autonomic deviations that call for attention."),
+    MARKED_DEVIATION("octagon-alert", AsiColor.DANGER, "Marked deviation", "Marked autonomic deviations."),
+    CALIBRATING("hourglass", AsiColor.MUTED, "Calibrating", "Calibrating: insufficient history."),
+    INSUFFICIENT_DATA("circle-help", AsiColor.MUTED, "Insufficient data", "Insufficient data to compute ASI."),
+    STALE_WINDOW("calendar-clock", AsiColor.MUTED, "Stale data", "The last seven readings aren't recent enough."),
 }
 
 /** Spec section 7.1. */
@@ -87,12 +87,13 @@ enum class AsiMissingReason(val icon: String, val color: AsiColor) {
 }
 
 /** Spec section 13/14 -- identifies which of the five parameters a result entry describes, and its
- * compact-view label ("HRV oggi", "HRV7", "CV7", "RHR oggi", "RHR7" per spec 13's format line). */
+ * compact-view label (translated from the spec's own "HRV oggi", "HRV7", "CV7", "RHR oggi", "RHR7"
+ * per spec 13's format line; English per the user's 2026-10-15 approval -- see CLAUDE.md). */
 enum class AsiParameterKey(val label: String) {
-    HRV_DAILY("HRV oggi"),
+    HRV_DAILY("HRV today"),
     HRV7("HRV7"),
     CV7("CV7"),
-    RHR_DAILY("RHR oggi"),
+    RHR_DAILY("RHR today"),
     RHR7("RHR7"),
 }
 
@@ -113,19 +114,20 @@ data class AsiParameterResult(
     val label: String get() = key.label
 }
 
-/** Spec section 9 -- the ten interpretive combinations, each independently evaluated. [comment] is the
- * fixed Italian text from the spec; never programmatically generated or substituted. */
+/** Spec section 9 -- the ten interpretive combinations, each independently evaluated. [comment] is
+ * translated from the spec's own fixed Italian text (English per the user's 2026-10-15 approval --
+ * see CLAUDE.md); never programmatically generated or substituted. */
 enum class AsiCombination(val icon: String, val comment: String) {
-    COMBO_01("trending-down", "HRV7 ridotta e RHR7 elevata: segnali concordanti."),
-    COMBO_02("activity", "Riduzione isolata dell'HRV odierna."),
-    COMBO_03("circle-minus", "HRV7 ridotta e CV7 basso: possibile soppressione stabile."),
-    COMBO_04("heart-pulse", "RHR odierna elevata senza corrispondente riduzione HRV."),
-    COMBO_05("trending-up", "HRV odierna nella fascia abituale, ma HRV7 ancora ridotta."),
-    COMBO_06("check-check", "Indicatori complessivamente coerenti con lo storico."),
-    COMBO_07("activity", "Risposta autonomica insolita: non equivale automaticamente a recupero superiore."),
-    COMBO_08("waves", "CV7 molto elevato senza riduzione consolidata di HRV7."),
-    COMBO_09("heart-pulse", "RHR7 persistentemente elevata con HRV7 non ridotta."),
-    COMBO_10("triangle-alert", "HRV odierna ridotta e RHR odierna elevata."),
+    COMBO_01("trending-down", "Reduced HRV7 and elevated RHR7: concordant signals."),
+    COMBO_02("activity", "Isolated reduction in today's HRV."),
+    COMBO_03("circle-minus", "Reduced HRV7 and low CV7: possible stable suppression."),
+    COMBO_04("heart-pulse", "Elevated today's RHR without a corresponding HRV reduction."),
+    COMBO_05("trending-up", "Today's HRV within the usual range, but HRV7 still reduced."),
+    COMBO_06("check-check", "Indicators overall consistent with history."),
+    COMBO_07("activity", "Unusual autonomic response: not automatically superior recovery."),
+    COMBO_08("waves", "Very high CV7 without a consolidated HRV7 reduction."),
+    COMBO_09("heart-pulse", "Persistently elevated RHR7 with HRV7 not reduced."),
+    COMBO_10("triangle-alert", "Today's HRV reduced and today's RHR elevated."),
 }
 
 /** Spec section 10.1 -- informational only; never changes [AsiResult.score] or [AsiResult.status]. */
