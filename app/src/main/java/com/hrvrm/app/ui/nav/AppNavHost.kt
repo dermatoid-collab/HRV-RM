@@ -15,6 +15,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
@@ -41,6 +42,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.hrvrm.app.ui.charts.ChartsScreen
 import com.hrvrm.app.ui.history.HistoryScreen
 import com.hrvrm.app.ui.history.MeasurementDetailScreen
 import com.hrvrm.app.ui.measure.MeasureScreen
@@ -49,11 +51,12 @@ import kotlinx.coroutines.launch
 
 private sealed class Destination(val label: String) {
     data object Measure : Destination("Measure")
+    data object Charts : Destination("Charts")
     data object History : Destination("History")
     data object Settings : Destination("Settings")
 }
 
-private val destinations = listOf(Destination.Measure, Destination.History, Destination.Settings)
+private val destinations = listOf(Destination.Measure, Destination.Charts, Destination.History, Destination.Settings)
 
 /**
  * Set to true by a screen right before it launches a picker, chooser or permission prompt via
@@ -72,7 +75,7 @@ object AppResumeSignal {
 }
 
 /**
- * Top-level navigation: "main" hosts the 3 tabs as swipeable pager pages (plus the same
+ * Top-level navigation: "main" hosts the 4 tabs as swipeable pager pages (plus the same
  * icon row tapped directly), "measurementDetail/{id}" is a normal pushed screen reached by
  * tapping a History row or the dashboard's "Last measurement" card -- it's deliberately
  * NOT a pager page, since there's no sensible "swipe into a specific measurement" gesture.
@@ -156,7 +159,7 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
             when (destinations[pagerState.currentPage]) {
                 Destination.Measure -> measureReturnSignal++
                 Destination.History -> historyReturnSignal++
-                Destination.Settings -> {}
+                Destination.Charts, Destination.Settings -> {}
             }
             lastPage = pagerState.currentPage
         }
@@ -178,10 +181,11 @@ private fun MainTabsScreen(startAtSettings: Boolean, onMeasurementClick: (Long) 
                 Destination.Measure -> MeasureScreen(
                     onMeasurementClick = onMeasurementClick,
                     onTrendClick = {
-                        scope.launch { pagerState.animateScrollToPage(destinations.indexOf(Destination.History)) }
+                        scope.launch { pagerState.animateScrollToPage(destinations.indexOf(Destination.Charts)) }
                     },
                     resetSignal = measureReturnSignal,
                 )
+                Destination.Charts -> ChartsScreen()
                 Destination.History -> HistoryScreen(onMeasurementClick = onMeasurementClick, resetSignal = historyReturnSignal)
                 Destination.Settings -> SettingsScreen()
             }
@@ -213,6 +217,7 @@ private fun TopTabBar(selectedIndex: Int, onSelect: (Int) -> Unit) {
             val selected = index == selectedIndex
             val icon = when (destination) {
                 Destination.Measure -> Icons.Filled.Favorite
+                Destination.Charts -> Icons.Filled.BarChart
                 Destination.History -> Icons.Filled.History
                 Destination.Settings -> Icons.Filled.Settings
             }

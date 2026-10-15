@@ -1,6 +1,5 @@
 package com.hrvrm.app.ui.history
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,7 +39,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrvrm.app.asi.AsiResult
 import com.hrvrm.app.data.MeasurementEntity
 import com.hrvrm.app.ui.asi.toComposeColor
-import com.hrvrm.app.ui.theme.RhrBandOverlay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -59,9 +57,7 @@ fun HistoryScreen(
     resetSignal: Int = 0,
 ) {
     val measurements by viewModel.measurements.collectAsStateWithLifecycle()
-    val dailyTrend by viewModel.dailyTrend.collectAsStateWithLifecycle()
     val dailyRhrTrend by viewModel.dailyRhrTrend.collectAsStateWithLifecycle()
-    val dailyAsiTrend by viewModel.dailyAsiTrend.collectAsStateWithLifecycle()
     val asiByMeasurementId by viewModel.asiByMeasurementId.collectAsStateWithLifecycle()
     val folderSyncState by viewModel.folderSyncState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -78,39 +74,6 @@ fun HistoryScreen(
                 Text("No measurements yet. Go to \"Measure\" to get started.")
             }
             return@Column
-        }
-
-        if (dailyTrend.size >= 2) {
-            // Border matches the chart's own normal-range band colour (full opacity, unlike the
-            // band's own 0.16-alpha fill) so the card visually "belongs to" that band.
-            OutlinedCard(
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
-                modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp),
-            ) {
-                HrvTrendChart(dailyTrend, modifier = Modifier.padding(10.dp))
-            }
-        }
-
-        if (dailyRhrTrend.size >= 2) {
-            OutlinedCard(
-                border = BorderStroke(1.dp, RhrBandOverlay),
-                modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp),
-            ) {
-                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(10.dp))
-            }
-        }
-
-        if (dailyAsiTrend.size >= 2) {
-            // Separate card, not overlaid on the HRV chart above -- spec 15.1: ASI's fixed
-            // 0-100 scale and HRV's floating ln-scale domain don't share an axis cleanly.
-            // Border follows today's own ASI status, unlike the HRV/RHR cards' fixed borders,
-            // since ASI's color is inherently status-dependent rather than a single accent.
-            OutlinedCard(
-                border = BorderStroke(1.dp, dailyAsiTrend.last().result.color.toComposeColor()),
-                modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp, 16.dp, 0.dp),
-            ) {
-                AsiTrendChart(dailyAsiTrend, modifier = Modifier.padding(10.dp))
-            }
         }
 
         LazyColumn(
@@ -235,14 +198,17 @@ private fun HistoryRow(measurement: MeasurementEntity, rhrStatus: Boolean?, asi:
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    asi?.let {
-                        Text(
-                            " · ASI ${it.score ?: "—"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = it.color.toComposeColor(),
-                        )
-                    }
+                }
+                // Own line, not appended to the row above -- that row is already tight enough
+                // that "ASI" wrapped awkwardly onto a second line by itself when it was appended
+                // there instead.
+                asi?.let {
+                    Text(
+                        "ASI ${it.score ?: "—"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = it.color.toComposeColor(),
+                    )
                 }
             }
 
