@@ -13,7 +13,7 @@ sealed class UploadResult {
     data class Failure(val message: String) : UploadResult()
 }
 
-/** Pushes a single day's HRV reading to the athlete's Intervals.icu wellness log. */
+/** Pushes a single day's HRV score, RHR and ASI to the athlete's Intervals.icu wellness log. */
 class IntervalsIcuRepository(
     private val settingsStore: SettingsStore,
 ) {
@@ -22,6 +22,8 @@ class IntervalsIcuRepository(
     suspend fun uploadHrv(
         measurementEpochMs: Long,
         hrvRmValue: Double,
+        rhrValue: Double,
+        asiValue: Double?,
     ): UploadResult {
         val apiKey = settingsStore.apiKey.first()
         val athleteId = settingsStore.athleteId.first()
@@ -37,7 +39,11 @@ class IntervalsIcuRepository(
             .toLocalDate()
             .format(dateFormatter)
 
-        val body = WellnessUpdate(hrvRmValue = roundTo(hrvRmValue, 1))
+        val body = WellnessUpdate(
+            hrvRmValue = roundTo(hrvRmValue, 1),
+            rhrRmValue = roundTo(rhrValue, 0),
+            asiRmValue = asiValue?.let { roundTo(it, 0) },
+        )
 
         return try {
             val api = IntervalsIcuClientFactory.create(apiKey)

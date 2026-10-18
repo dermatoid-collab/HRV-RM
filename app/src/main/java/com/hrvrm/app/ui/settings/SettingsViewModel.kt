@@ -35,6 +35,9 @@ data class SettingsUiState(
     val testResult: String? = null,
     val testHrvInProgress: Boolean = false,
     val testHrvResult: String? = null,
+    val resyncInProgress: Boolean = false,
+    val resyncProgress: String? = null,
+    val resyncResult: String? = null,
     val backupInProgress: Boolean = false,
     val backupResult: String? = null,
     val backupFolderName: String? = null,
@@ -239,6 +242,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 is UploadResult.Failure -> result.message
             }
             _uiState.update { it.copy(testHrvInProgress = false, testHrvResult = message) }
+        }
+    }
+
+    /**
+     * Re-uploads the entire local history to Intervals.icu, one request per calendar day --
+     * see [com.hrvrm.app.data.MeasurementRepository.resyncHistoryToIntervals] for why per-day
+     * rather than per measurement, and why this can take a while on a large history. Mainly
+     * for backfilling RHRRM/ASIRM onto days that were already synced before those fields
+     * existed here, but re-covers every day regardless (also repairs any day whose upload
+     * failed the first time).
+     */
+    fun resyncHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(resyncInProgress = true, resyncResult = null, resyncProgress = null) }
+            val result = container.measurementRepository.resyncHistoryToIntervals { done, total ->
+                _uiState.update { it.copy(resyncProgress = "$done / $total") }
+            }
+            val message = when {
+                result.missingCredentials -> "Set your Intervals.icu API key and Athlete ID first."
+                result.total == 0 -> "No measurements to sync yet."
+                result.failed == 0 -> "Synced ${result.succeeded} day${if (result.succeeded == 1) "" else "s"}."
+                else -> "Synced ${result.succeeded} of ${result.total} days — ${result.failed} failed."
+            }
+            _uiState.update { it.copy(resyncInProgress = false, resyncProgress = null, resyncResult = message) }
         }
     }
 

@@ -10,10 +10,11 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Fields understood by Intervals.icu's per-day wellness entry. Only HRVRM is populated
- * here (unset fields are omitted and left untouched server-side) — this app deliberately
- * uploads just its own custom field, not hrv/hrvSDNN/restingHR, so it never overwrites
- * values another integration (or manual entry) may already own for that day.
+ * Fields understood by Intervals.icu's per-day wellness entry. Only this app's own three
+ * custom fields (HRVRM, RHRRM, ASIRM) are populated here (unset fields are omitted and left
+ * untouched server-side) — this app deliberately never writes Intervals.icu's own built-in
+ * hrv/hrvSDNN/restingHR fields, so it never overwrites values another integration (or manual
+ * entry) may already own for that day.
  */
 @Serializable
 data class WellnessUpdate(
@@ -25,6 +26,17 @@ data class WellnessUpdate(
      */
     @SerialName("HRVRM")
     val hrvRmValue: Double? = null,
+    /** Custom wellness field: this app's own resting HR reading (bpm), rounded to a whole number. */
+    @SerialName("RHRRM")
+    val rhrRmValue: Double? = null,
+    /**
+     * Custom wellness field: this app's own ASI (Autonomic Status Index) score (0-100). Left
+     * unset -- not sent as an explicit null, see the class doc comment -- on any day ASI itself
+     * is null (CALIBRATING/INSUFFICIENT_DATA/STALE_WINDOW), same "never impute, never overwrite
+     * with a guess" rule the ASI module itself follows.
+     */
+    @SerialName("ASIRM")
+    val asiRmValue: Double? = null,
 )
 
 interface IntervalsIcuApi {

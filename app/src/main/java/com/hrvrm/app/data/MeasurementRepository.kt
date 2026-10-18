@@ -1,6 +1,8 @@
 package com.hrvrm.app.data
 
 import android.net.Uri
+import com.hrvrm.app.asi.AsiConfig
+import com.hrvrm.app.asi.AsiHistoryAdapter
 import com.hrvrm.app.backup.FolderSync
 import com.hrvrm.app.backup.RawSampleStorage
 import com.hrvrm.app.hrv.HrvMetrics
@@ -8,6 +10,10 @@ import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.network.IntervalsIcuRepository
 import com.hrvrm.app.network.UploadResult
 import com.hrvrm.app.ppg.PpgSample
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.decodeFromString
@@ -106,9 +112,18 @@ class MeasurementRepository(
     }
 
     suspend fun uploadMeasurement(measurement: MeasurementEntity): MeasurementEntity {
+        // ASI needs its own preceding-history window (same AsiConfig.BASELINE_WINDOW_SIZE cap
+        // the detail/result screens already use) -- it's null whenever ASI itself is
+        // CALIBRATING/INSUFFICIENT_DATA/STALE_WINDOW, in which case ASIRM is simply omitted
+        // below rather than sent as a guessed value (see WellnessUpdate's own doc comment).
+        val preceding = dao.getPriorMeasurements(measurement.timestampEpochMs, AsiConfig.BASELINE_WINDOW_SIZE)
+        val asi = AsiHistoryAdapter.compute(measurement, preceding)
+
         val result = intervalsRepository.uploadHrv(
             measurementEpochMs = measurement.timestampEpochMs,
             hrvRmValue = measurement.altiniScaleValue,
+            rhrValue = measurement.meanHrBpm,
+            asiValue = asi.score?.toDouble(),
         )
         val updated = when (result) {
             is UploadResult.Success -> measurement.copy(uploadedToIntervals = true, uploadError = null)
@@ -117,6 +132,62 @@ class MeasurementRepository(
         }
         dao.update(updated)
         return updated
+    }
+
+    /**
+     * One day's outcome within a [resyncHistoryToIntervals] run -- the date it covers (not the
+     * individual measurement's own id, since same-day measurements collapse to one upload) and
+     * whether that upload succeeded.
+     */
+    data class ResyncDayResult(val date: LocalDate, val succeeded: Boolean)
+
+    /** Full outcome of a [resyncHistoryToIntervals] run. */
+    data class ResyncResult(val days: List<ResyncDayResult>, val missingCredentials: Boolean) {
+        val total: Int get() = days.size
+        val succeeded: Int get() = days.count { it.succeeded }
+        val failed: Int get() = total - succeeded
+    }
+
+    /**
+     * Re-uploads the entire local history to Intervals.icu -- one request per CALENDAR DAY, not
+     * per measurement: a day with more than one reading already collapses to its most recent one
+     * for upload purposes (same "latest wins" rule [saveMeasurement]'s own auto-upload already
+     * follows for that day, and the same rule the trend charts use to go from measurements to
+     * daily points), so re-uploading every individual measurement would just mean redundant
+     * requests overwriting each other for the same date. Every day is attempted even after a
+     * failure (a transient network error on one day says nothing about the rest), and each
+     * day's own [MeasurementEntity.uploadedToIntervals]/[MeasurementEntity.uploadError] is left
+     * exactly as [uploadMeasurement] (which this calls) always leaves them.
+     *
+     * [onProgress] fires after each day (1-indexed "done" count, against the final total) so a
+     * caller can show a live "N / total" readout -- this can take a while on a large history,
+     * one request at a time ([RESYNC_DELAY_MS] apart, deliberately paced rather than firing every
+     * request back to back).
+     */
+    suspend fun resyncHistoryToIntervals(onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }): ResyncResult {
+        val apiKey = settingsStore.apiKey.first()
+        val athleteId = settingsStore.athleteId.first()
+        if (apiKey.isNullOrBlank() || athleteId.isNullOrBlank()) {
+            return ResyncResult(days = emptyList(), missingCredentials = true)
+        }
+
+        val zone = ZoneId.systemDefault()
+        val latestPerDay = LinkedHashMap<LocalDate, MeasurementEntity>()
+        for (m in dao.getAllOnce().sortedByDescending { it.timestampEpochMs }) {
+            val day = Instant.ofEpochMilli(m.timestampEpochMs).atZone(zone).toLocalDate()
+            latestPerDay.putIfAbsent(day, m) // input is newest-first, so the first hit per day is the latest
+        }
+        val dayEntries = latestPerDay.entries.sortedBy { it.key }
+
+        val results = mutableListOf<ResyncDayResult>()
+        for ((index, entry) in dayEntries.withIndex()) {
+            val (date, measurement) = entry
+            val updated = uploadMeasurement(measurement)
+            results += ResyncDayResult(date, updated.uploadedToIntervals)
+            onProgress(index + 1, dayEntries.size)
+            if (index < dayEntries.lastIndex) delay(RESYNC_DELAY_MS)
+        }
+        return ResyncResult(days = results, missingCredentials = false)
     }
 
     /**
@@ -210,5 +281,11 @@ class MeasurementRepository(
             imported = toInsert.size,
             skippedAlreadyPresent = backup.measurements.size - toInsert.size,
         )
+    }
+
+    private companion object {
+        /** Deliberate pause between requests in [resyncHistoryToIntervals] -- a potentially
+         * long run of per-day uploads, paced rather than fired back to back. */
+        const val RESYNC_DELAY_MS = 150L
     }
 }
