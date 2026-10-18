@@ -89,6 +89,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Same page-title style as the Charts/History tabs' own "Charts"/"History" headers.
+        Text("Settings", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
         Text(
             "Intervals.icu",
             fontSize = MaterialTheme.typography.headlineMedium.fontSize * 0.75f,
@@ -172,6 +175,22 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 result,
                 fontSize = 13.sp,
                 color = if (isSuccess) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+            )
+        }
+
+        OutlinedButton(onClick = viewModel::resyncHistory, enabled = !state.resyncInProgress) {
+            if (state.resyncInProgress) {
+                CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp)
+            }
+            Text(if (state.resyncInProgress) "Syncing… ${state.resyncProgress ?: ""}" else "Resync all history")
+        }
+
+        state.resyncResult?.let { result ->
+            val isError = result.startsWith("Set your") || result.contains("failed")
+            Text(
+                result,
+                fontSize = 13.sp,
+                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
             )
         }
 
@@ -533,6 +552,29 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
  * definition split apart (rather than one literal string per row) so the term alone -- not
  * the dash or the definition that follows it -- renders bold; see [GlossaryEntry]. */
 private val glossaryEntries = listOf(
+    "ASI" to
+        "Autonomic Status Index, a personalized, experimental 0–100 index designed to quantify " +
+            "unfavorable deviations in an athlete's autonomic profile relative to their historical " +
+            "baseline. ASI is not a medical diagnostic tool or a standalone measure of training " +
+            "readiness.\n\n" +
+            "The score combines five physiological indicators: Daily HRV / 7-day HRV / RHR / " +
+            "7-day RHR / CV7. HRV and RHR deviations are standardized using individual historical " +
+            "means and standard deviations (z-scores), while CV7 is evaluated against historical " +
+            "percentiles.\n\n" +
+            "Score calculation:\n" +
+            "ASI = round(clamp(100 − P_HRV − P_HRV7 − P_RHR − P_RHR7 − P_CV7, 0, 100))\n\n" +
+            "The score starts at 100 and decreases through progressively increasing penalties for " +
+            "unfavorable deviations:\n" +
+            "- Daily HRV: up to 25 points.\n" +
+            "- 7-day HRV: up to 20 points.\n" +
+            "- Daily RHR: up to 25 points.\n" +
+            "- 7-day RHR: up to 20 points.\n" +
+            "- CV7: up to 10 points.\n\n" +
+            "Higher-than-usual HRV and lower-than-usual RHR do not generate bonus points. " +
+            "Unusually extreme autonomic responses are flagged separately.\n\n" +
+            "Interpretation: higher ASI scores indicate fewer unfavorable deviations from the " +
+            "athlete's habitual autonomic profile. Lower scores reflect increasingly pronounced " +
+            "deviations.",
     "Baseline (HRV baseline, 7-reading avg)" to
         "rolling average of the last 7 HRV score readings; more stable than the day's own value.",
     "Building baseline" to

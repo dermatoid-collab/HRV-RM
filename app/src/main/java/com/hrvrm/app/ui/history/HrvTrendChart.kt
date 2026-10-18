@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -133,7 +134,11 @@ private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
+fun HrvTrendChart(
+    points: List<DailyHrvPoint>,
+    onShownColorChanged: (Color) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     if (points.size < 2) return // nothing to trend yet — the row below already shows the one reading
 
     val maxIndex = (points.size - 1).toFloat()
@@ -178,6 +183,18 @@ fun HrvTrendChart(points: List<DailyHrvPoint>, modifier: Modifier = Modifier) {
 
         val selected = selectedIndex?.let { points.getOrNull(it) } ?: points.last()
         SelectionReadout(selected, effectiveMetric, hasCv7 = hasCv7)
+
+        // Same fixed clinical-signal colors (RangeWithin/Above/Below) the bars themselves use
+        // (see TrendCanvas's own statusColor below) -- reported up so the card wrapping this
+        // chart (ChartsScreen) can give its own border the same color as the selected bar.
+        val selectedColor = when {
+            selected.normalRangeLowAltiniScale == null || selected.normalRangeHighAltiniScale == null ->
+                MaterialTheme.colorScheme.onSurfaceVariant
+            selected.altiniScaleValue > selected.normalRangeHighAltiniScale -> RangeAbove
+            selected.altiniScaleValue < selected.normalRangeLowAltiniScale -> RangeBelow
+            else -> RangeWithin
+        }
+        SideEffect { onShownColorChanged(selectedColor) }
 
         TrendCanvas(
             points = points,

@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -128,7 +129,11 @@ fun rhrWithinNormalRange(points: List<DailyRhrPoint>, index: Int): Boolean? {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
+fun RhrTrendChart(
+    points: List<DailyRhrPoint>,
+    onShownColorChanged: (Color) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     if (points.size < 2) return // nothing to trend yet
 
     var rangeStart by remember(points.size) { mutableStateOf(rhrStartIndexForLastDays(points, RHR_DEFAULT_WINDOW_DAYS)) }
@@ -146,7 +151,7 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Resting HR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("RHR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 RhrRangePresets(selectedRangeLabel) { label, days ->
                     rangeStart = if (days == null) 0 else rhrStartIndexForLastDays(points, days)
                     selectedRangeLabel = label
@@ -168,6 +173,17 @@ fun RhrTrendChart(points: List<DailyRhrPoint>, modifier: Modifier = Modifier) {
             false -> MaterialTheme.colorScheme.error
             null -> MaterialTheme.colorScheme.onSurfaceVariant
         }
+        // Same fixed clinical-signal colors (RangeWithin/Above/Below) the bars themselves use
+        // (see RhrCanvas's own statusColor below) -- reported up so the card wrapping this chart
+        // (ChartsScreen) can give its own border the same color as the selected bar.
+        val shownBand = rhrBandAt(points, shownIndex)
+        val selectedColor = when {
+            shownBand == null -> MaterialTheme.colorScheme.onSurfaceVariant
+            shown.meanHrBpm > shownBand.endInclusive -> RangeAbove
+            shown.meanHrBpm < shownBand.start -> RangeBelow
+            else -> RangeWithin
+        }
+        SideEffect { onShownColorChanged(selectedColor) }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,

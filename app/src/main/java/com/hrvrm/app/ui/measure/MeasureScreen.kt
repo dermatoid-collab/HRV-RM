@@ -11,6 +11,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -90,6 +92,7 @@ import com.hrvrm.app.hrv.HrvScoreCalculator
 import com.hrvrm.app.ppg.BeatRejectionReason
 import com.hrvrm.app.ui.asi.AsiDetailSection
 import com.hrvrm.app.ui.asi.AsiMiniBadge
+import com.hrvrm.app.ui.asi.toComposeColor
 import com.hrvrm.app.ui.nav.AppResumeSignal
 import com.hrvrm.app.ui.theme.MeasuringRingTrack
 import com.hrvrm.app.ui.theme.NormalRangeTrack
@@ -220,7 +223,12 @@ private fun TodayDashboardContent(
         return
     }
 
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    // Border follows ASI's own status color, same as the Charts page's ASI tile, instead of the
+    // card's default neutral outline -- ASI is the first/top tile on this page too.
+    OutlinedCard(
+        border = latestAsi?.let { BorderStroke(1.dp, it.color.toComposeColor()) } ?: CardDefaults.outlinedCardBorder(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             val dateText = Instant.ofEpochMilli(latest.timestampEpochMs)
                 .atZone(ZoneId.systemDefault())

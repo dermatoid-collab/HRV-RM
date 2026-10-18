@@ -13,8 +13,12 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +46,12 @@ fun ChartsScreen(viewModel: HistoryViewModel = viewModel()) {
 
     val hasAnyChart = dailyAsiTrend.size >= 2 || dailyTrend.size >= 2 || dailyRhrTrend.size >= 2
 
+    // Each tile's border tracks whichever bar is currently selected/shown in its own chart
+    // (falls back to today's/the fixed color below until that chart's first SideEffect fires).
+    var asiBorderColor by remember { mutableStateOf<Color?>(null) }
+    var hrvBorderColor by remember { mutableStateOf<Color?>(null) }
+    var rhrBorderColor by remember { mutableStateOf<Color?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -66,32 +76,31 @@ fun ChartsScreen(viewModel: HistoryViewModel = viewModel()) {
         }
 
         if (dailyAsiTrend.size >= 2) {
-            // Border follows today's own ASI status, unlike the HRV/RHR cards' fixed borders --
-            // see the identical choice (with its reasoning) where this card previously lived in
-            // HistoryScreen.kt.
+            // Border follows whichever bar is currently selected/shown in the chart below (falls
+            // back to today's own status until that first fires, same value this always showed).
             OutlinedCard(
-                border = BorderStroke(1.dp, dailyAsiTrend.last().result.color.toComposeColor()),
+                border = BorderStroke(1.dp, asiBorderColor ?: dailyAsiTrend.last().result.color.toComposeColor()),
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 0.dp),
             ) {
-                AsiTrendChart(dailyAsiTrend, modifier = Modifier.padding(10.dp))
+                AsiTrendChart(dailyAsiTrend, onShownColorChanged = { asiBorderColor = it }, modifier = Modifier.padding(10.dp))
             }
         }
 
         if (dailyTrend.size >= 2) {
             OutlinedCard(
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+                border = BorderStroke(1.dp, hrvBorderColor ?: MaterialTheme.colorScheme.secondary),
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 0.dp),
             ) {
-                HrvTrendChart(dailyTrend, modifier = Modifier.padding(10.dp))
+                HrvTrendChart(dailyTrend, onShownColorChanged = { hrvBorderColor = it }, modifier = Modifier.padding(10.dp))
             }
         }
 
         if (dailyRhrTrend.size >= 2) {
             OutlinedCard(
-                border = BorderStroke(1.dp, RhrBandOverlay),
+                border = BorderStroke(1.dp, rhrBorderColor ?: RhrBandOverlay),
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 16.dp),
             ) {
-                RhrTrendChart(dailyRhrTrend, modifier = Modifier.padding(10.dp))
+                RhrTrendChart(dailyRhrTrend, onShownColorChanged = { rhrBorderColor = it }, modifier = Modifier.padding(10.dp))
             }
         }
     }

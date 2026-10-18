@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,7 +100,11 @@ private fun asiStartIndexForLastDays(points: List<DailyAsiPoint>, days: Int): In
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AsiTrendChart(points: List<DailyAsiPoint>, modifier: Modifier = Modifier) {
+fun AsiTrendChart(
+    points: List<DailyAsiPoint>,
+    onShownColorChanged: (Color) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     if (points.size < 2) return // nothing to trend yet
 
     var rangeStart by remember(points.size) { mutableStateOf(asiStartIndexForLastDays(points, ASI_DEFAULT_WINDOW_DAYS)) }
@@ -125,6 +130,9 @@ fun AsiTrendChart(points: List<DailyAsiPoint>, modifier: Modifier = Modifier) {
 
         val shownIndex = selectedIndex ?: points.lastIndex
         val shown = points[shownIndex]
+        // Reported up so the card wrapping this chart (ChartsScreen) can give its own border
+        // the same color as whichever bar is currently selected/shown here.
+        SideEffect { onShownColorChanged(shown.result.color.toComposeColor()) }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,

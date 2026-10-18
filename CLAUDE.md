@@ -1,11 +1,10 @@
 # HRV-RM — notes for future sessions
 
-## Pending: translate ASI Italian strings to English (approved 2026-10-15, not yet implemented)
+## Done: ASI Italian strings translated to English (approved 2026-10-15, implemented same day)
 
-The user approved translating every Italian string in the ASI module to English. This is a
-memo for a *future* build — no code has been changed yet. When implementing, update the string
-tables below plus the tests that assert on these exact strings (`AsiEngineTest.kt`,
-`AsiInterpretationTest.kt`).
+Every Italian string in the ASI module was translated to English per the table below (commit
+"Translate ASI's Italian strings to English", 2026-10-15). `AsiEngineTest.kt` and
+`AsiInterpretationTest.kt` were updated to match. Kept for reference only — nothing further to do.
 
 ### `AsiStatus` — label (`asi/AsiModels.kt`)
 | Italian | English |
