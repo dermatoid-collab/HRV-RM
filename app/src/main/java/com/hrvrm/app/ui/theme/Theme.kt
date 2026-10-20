@@ -60,6 +60,17 @@ enum class ThemeMode(val label: String, val dark: Boolean? = null) {
     ILMETEO("ilMeteo", false),
     AZZURRO("Azzurro", false),
     GIALLO("Giallo", false),
+
+    // Ported from the sibling ERG-RM app's own "Minimalist" set: 4 low-saturation grayscale
+    // families (neutral hue bias per family), each with a Dark/Light pair.
+    NEUTRAL_DARK("Neutral Dark", true),
+    NEUTRAL_LIGHT("Neutral Light", false),
+    SEPIA_DARK("Sepia Dark", true),
+    SEPIA_LIGHT("Sepia Light", false),
+    SAGE_DARK("Sage Dark", true),
+    SAGE_LIGHT("Sage Light", false),
+    LAVENDER_DARK("Lavender Dark", true),
+    LAVENDER_LIGHT("Lavender Light", false),
 }
 
 /** Whether [ThemeMode] is picked by hand (see Settings' palette list) or rotates on its own. */
@@ -207,14 +218,22 @@ private class Palette(
     val outlineVariant: Long,
     val error: Long,
     val errorContainer: Long,
+    /** Overrides the default white text-on-primary -- needed only where [primary] itself is a
+     * near-white "ink" color (the Minimalist set's *_DARK families, whose primary deliberately
+     * reuses their own near-white [onBackground] for a monochrome button, per ERG-RM's own
+     * design note): white-on-near-white would be unreadable. Every other palette's primary is
+     * saturated/dark enough that plain white text already has solid contrast, so this stays
+     * null (-> white) for all of them, same as before this field existed. */
+    val onPrimary: Long? = null,
 ) {
     private fun c(rgb: Long) = Color(0xFF000000 or rgb)
 
     fun scheme(): ColorScheme {
         val onAccent = if (dark) c(background) else Color.White
+        val onPrimaryColor = onPrimary?.let { c(it) } ?: Color.White
         return if (dark) {
             darkColorScheme(
-                primary = c(primary), onPrimary = Color.White,
+                primary = c(primary), onPrimary = onPrimaryColor,
                 primaryContainer = c(primaryContainer), onPrimaryContainer = c(onPrimaryContainer),
                 secondary = c(secondary), onSecondary = onAccent,
                 secondaryContainer = c(surfaceHigh), onSecondaryContainer = c(onBackground),
@@ -230,7 +249,7 @@ private class Palette(
             )
         } else {
             lightColorScheme(
-                primary = c(primary), onPrimary = Color.White,
+                primary = c(primary), onPrimary = onPrimaryColor,
                 primaryContainer = c(primaryContainer), onPrimaryContainer = c(onPrimaryContainer),
                 secondary = c(secondary), onSecondary = onAccent,
                 secondaryContainer = c(surfaceHigh), onSecondaryContainer = c(onBackground),
@@ -400,6 +419,70 @@ private val Palettes: Map<ThemeMode, Palette> = mapOf(
         dark = false, background = 0xFFF5C2, surface = 0xFFE066, surfaceHigh = 0xEED15E, surfaceHighest = 0xD9BD54,
         onBackground = 0x2A2000, onVariant = 0x5C4A00, primary = 0x1E70C8, primaryContainer = 0x6D9FC6, onPrimaryContainer = 0x2A2000,
         secondary = 0xE65100, tertiary = 0xC77700, outline = 0xB39B2E, outlineVariant = 0xD1B744, error = 0xD32F2F, errorContainer = 0xF6CDA5,
+    ),
+    // Ported from ERG-RM's "Minimalist" set (its own Theme.kt comment, carried over): the spec
+    // defines only 6 semantic roles (background/surface/elevated/muted/textSecondary/textPrimary),
+    // mapped onto this file's 16-field Palette as background->background, surface->surface,
+    // elevated->surfaceHigh, textPrimary->onBackground, textSecondary->onVariant, muted->
+    // secondary/tertiary/outline (elevated reused for outlineVariant too); surfaceHighest (not in
+    // the spec) is elevated blended 14% toward textPrimary, a third depth step consistent with the
+    // spec's own progression. primary/onPrimaryContainer reuse textPrimary and primaryContainer
+    // reuses elevated -- a monochrome "ink" button rather than a new saturated accent hue (the spec
+    // explicitly asks to avoid those) -- which is also why the *_DARK families need the onPrimary
+    // override above: their primary is near-white, so white button text would be unreadable. error/
+    // errorContainer aren't in the spec either: one shared muted terracotta (dark) / brick-red
+    // (light) across all 4 families, same as this file's own fixed semantic colors (RangeWithin
+    // etc.) staying constant across palettes.
+    //
+    // Contrast caveat carried over from ERG-RM, not silently adjusted (these are the spec's own
+    // hex values): textSecondary/background is only 3.70-4.45:1 in 3 of the 4 *light* families
+    // (Sage/Lavender/Neutral -- Sepia passes at 4.45), under the 4.5:1 WCAG AA threshold for normal
+    // body text though fine for large text/UI components (>=3:1); muted/background (used here as
+    // outline) is only 1.8-2.1:1 in all 4 light families, short of the 3:1 threshold for a control's
+    // sole edge indicator -- fine as a background-only wash.
+    ThemeMode.NEUTRAL_DARK to Palette(
+        dark = true, background = 0x101010, surface = 0x1C1C1C, surfaceHigh = 0x2B2B2B, surfaceHighest = 0x474747,
+        onBackground = 0xF5F5F5, onVariant = 0xBDBDBD, primary = 0xF5F5F5, primaryContainer = 0x2B2B2B, onPrimaryContainer = 0xF5F5F5,
+        secondary = 0x777777, tertiary = 0x777777, outline = 0x777777, outlineVariant = 0x2B2B2B, error = 0xD9776E, errorContainer = 0x382523,
+        onPrimary = 0x101010,
+    ),
+    ThemeMode.NEUTRAL_LIGHT to Palette(
+        dark = false, background = 0xF0F0F0, surface = 0xFAFAFA, surfaceHigh = 0xDCDCDC, surfaceHighest = 0xC3C3C3,
+        onBackground = 0x282828, onVariant = 0x707070, primary = 0x282828, primaryContainer = 0xDCDCDC, onPrimaryContainer = 0x282828,
+        secondary = 0xA8A8A8, tertiary = 0xA8A8A8, outline = 0xA8A8A8, outlineVariant = 0xDCDCDC, error = 0xA6433B, errorContainer = 0xE3D1CF,
+    ),
+    ThemeMode.SEPIA_DARK to Palette(
+        dark = true, background = 0x181512, surface = 0x28231F, surfaceHigh = 0x39322B, surfaceHighest = 0x534D46,
+        onBackground = 0xF5F0E9, onVariant = 0xC8BCAC, primary = 0xF5F0E9, primaryContainer = 0x39322B, onPrimaryContainer = 0xF5F0E9,
+        secondary = 0x887B6E, tertiary = 0x887B6E, outline = 0x887B6E, outlineVariant = 0x39322B, error = 0xD9776E, errorContainer = 0x3F2924,
+        onPrimary = 0x181512,
+    ),
+    ThemeMode.SEPIA_LIGHT to Palette(
+        dark = false, background = 0xF3F0EA, surface = 0xFCFAF6, surfaceHigh = 0xE4DDD3, surfaceHighest = 0xCBC4BB,
+        onBackground = 0x302A25, onVariant = 0x776D61, primary = 0x302A25, primaryContainer = 0xE4DDD3, onPrimaryContainer = 0x302A25,
+        secondary = 0xB3A99B, tertiary = 0xB3A99B, outline = 0xB3A99B, outlineVariant = 0xE4DDD3, error = 0xA6433B, errorContainer = 0xE5D1CA,
+    ),
+    ThemeMode.SAGE_DARK to Palette(
+        dark = true, background = 0x151A16, surface = 0x242C25, surfaceHigh = 0x354037, surfaceHighest = 0x4F5951,
+        onBackground = 0xF1F5F0, onVariant = 0xC0CDC2, primary = 0xF1F5F0, primaryContainer = 0x354037, onPrimaryContainer = 0xF1F5F0,
+        secondary = 0x819084, tertiary = 0x819084, outline = 0x819084, outlineVariant = 0x354037, error = 0xD9776E, errorContainer = 0x3C2D28,
+        onPrimary = 0x151A16,
+    ),
+    ThemeMode.SAGE_LIGHT to Palette(
+        dark = false, background = 0xF0F3EF, surface = 0xFAFCF9, surfaceHigh = 0xDFE6DC, surfaceHighest = 0xC6CEC4,
+        onBackground = 0x2C382D, onVariant = 0x71816F, primary = 0x2C382D, primaryContainer = 0xDFE6DC, onPrimaryContainer = 0x2C382D,
+        secondary = 0xACB9A9, tertiary = 0xACB9A9, outline = 0xACB9A9, outlineVariant = 0xDFE6DC, error = 0xA6433B, errorContainer = 0xE3D3CF,
+    ),
+    ThemeMode.LAVENDER_DARK to Palette(
+        dark = true, background = 0x17151D, surface = 0x25232E, surfaceHigh = 0x373442, surfaceHighest = 0x524F5C,
+        onBackground = 0xF5F2F9, onVariant = 0xC8C3D3, primary = 0xF5F2F9, primaryContainer = 0x373442, onPrimaryContainer = 0xF5F2F9,
+        secondary = 0x898397, tertiary = 0x898397, outline = 0x898397, outlineVariant = 0x373442, error = 0xD9776E, errorContainer = 0x3E292D,
+        onPrimary = 0x17151D,
+    ),
+    ThemeMode.LAVENDER_LIGHT to Palette(
+        dark = false, background = 0xF2F0F6, surface = 0xFCFBFD, surfaceHigh = 0xE4DFEB, surfaceHighest = 0xCBC6D2,
+        onBackground = 0x302B3B, onVariant = 0x79718A, primary = 0x302B3B, primaryContainer = 0xE4DFEB, onPrimaryContainer = 0x302B3B,
+        secondary = 0xB2A9C0, tertiary = 0xB2A9C0, outline = 0xB2A9C0, outlineVariant = 0xE4DFEB, error = 0xA6433B, errorContainer = 0xE4D1D4,
     ),
 )
 
