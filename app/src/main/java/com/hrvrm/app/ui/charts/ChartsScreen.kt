@@ -30,6 +30,7 @@ import com.hrvrm.app.ui.history.HistoryViewModel
 import com.hrvrm.app.ui.history.HrvTrendChart
 import com.hrvrm.app.ui.history.RhrTrendChart
 import com.hrvrm.app.ui.theme.RhrBandOverlay
+import java.time.LocalDate
 
 /**
  * All three trend charts on their own page -- split out of History (which otherwise didn't fit
@@ -51,6 +52,14 @@ fun ChartsScreen(viewModel: HistoryViewModel = viewModel()) {
     var asiBorderColor by remember { mutableStateOf<Color?>(null) }
     var hrvBorderColor by remember { mutableStateOf<Color?>(null) }
     var rhrBorderColor by remember { mutableStateOf<Color?>(null) }
+
+    // Shared across all three charts so dragging on any one of them moves the vertical
+    // selection line in the other two as well -- a calendar date rather than a raw index,
+    // since each chart's own points list has its own length/start (e.g. ASI needs more
+    // history before it has any data at all, so index N in one list isn't index N in another).
+    // null means "no explicit selection", which each chart independently reads as "show the
+    // latest point", same default as before this was shared.
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     Column(
         modifier = Modifier
@@ -82,7 +91,13 @@ fun ChartsScreen(viewModel: HistoryViewModel = viewModel()) {
                 border = BorderStroke(1.dp, asiBorderColor ?: dailyAsiTrend.last().result.color.toComposeColor()),
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 0.dp),
             ) {
-                AsiTrendChart(dailyAsiTrend, onShownColorChanged = { asiBorderColor = it }, modifier = Modifier.padding(10.dp))
+                AsiTrendChart(
+                    dailyAsiTrend,
+                    selectedDate = selectedDate,
+                    onSelectedDateChanged = { selectedDate = it },
+                    onShownColorChanged = { asiBorderColor = it },
+                    modifier = Modifier.padding(10.dp),
+                )
             }
         }
 
@@ -91,7 +106,13 @@ fun ChartsScreen(viewModel: HistoryViewModel = viewModel()) {
                 border = BorderStroke(1.dp, hrvBorderColor ?: MaterialTheme.colorScheme.secondary),
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 0.dp),
             ) {
-                HrvTrendChart(dailyTrend, onShownColorChanged = { hrvBorderColor = it }, modifier = Modifier.padding(10.dp))
+                HrvTrendChart(
+                    dailyTrend,
+                    selectedDate = selectedDate,
+                    onSelectedDateChanged = { selectedDate = it },
+                    onShownColorChanged = { hrvBorderColor = it },
+                    modifier = Modifier.padding(10.dp),
+                )
             }
         }
 
@@ -100,7 +121,13 @@ fun ChartsScreen(viewModel: HistoryViewModel = viewModel()) {
                 border = BorderStroke(1.dp, rhrBorderColor ?: RhrBandOverlay),
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 16.dp),
             ) {
-                RhrTrendChart(dailyRhrTrend, onShownColorChanged = { rhrBorderColor = it }, modifier = Modifier.padding(10.dp))
+                RhrTrendChart(
+                    dailyRhrTrend,
+                    selectedDate = selectedDate,
+                    onSelectedDateChanged = { selectedDate = it },
+                    onShownColorChanged = { rhrBorderColor = it },
+                    modifier = Modifier.padding(10.dp),
+                )
             }
         }
     }

@@ -136,6 +136,8 @@ private fun startIndexForLastDays(points: List<DailyHrvPoint>, days: Int): Float
 @Composable
 fun HrvTrendChart(
     points: List<DailyHrvPoint>,
+    selectedDate: LocalDate? = null,
+    onSelectedDateChanged: (LocalDate?) -> Unit = {},
     onShownColorChanged: (Color) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -145,7 +147,9 @@ fun HrvTrendChart(
     var metric by remember { mutableStateOf(TrendMetric.LN_SCALE) }
     var viewStart by remember(points.size) { mutableFloatStateOf(startIndexForLastDays(points, DEFAULT_WINDOW_DAYS)) }
     var viewEnd by remember(points.size) { mutableFloatStateOf(maxIndex) }
-    var selectedIndex by remember(points.size) { mutableStateOf<Int?>(null) }
+    // Derived from the shared [selectedDate] (see ChartsScreen) rather than its own local state,
+    // so dragging on any of the three Charts-tab charts moves this one's own selection line too.
+    val selectedIndex = selectedDate?.let { d -> points.indexOfFirst { it.date == d } }?.takeIf { it >= 0 }
     var selectedRangeLabel by remember(points.size) { mutableStateOf<String?>(DEFAULT_RANGE_LABEL) }
 
     val hasScore = points.any { it.hrvScore != null }
@@ -175,7 +179,7 @@ fun HrvTrendChart(
                 RangePresets(selectedRangeLabel) { label, days ->
                     viewStart = if (days == null) 0f else startIndexForLastDays(points, days)
                     viewEnd = maxIndex
-                    selectedIndex = null
+                    onSelectedDateChanged(null)
                     selectedRangeLabel = label
                 }
             }
@@ -204,7 +208,7 @@ fun HrvTrendChart(
             viewEnd = viewEnd,
             selectedIndex = selectedIndex,
             onViewChange = { start, end -> viewStart = start; viewEnd = end; selectedRangeLabel = null },
-            onSelect = { selectedIndex = it },
+            onSelect = { idx -> idx?.let { onSelectedDateChanged(points[it].date) } },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2.5f),

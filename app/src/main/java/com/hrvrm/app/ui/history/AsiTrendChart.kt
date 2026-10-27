@@ -102,6 +102,8 @@ private fun asiStartIndexForLastDays(points: List<DailyAsiPoint>, days: Int): In
 @Composable
 fun AsiTrendChart(
     points: List<DailyAsiPoint>,
+    selectedDate: LocalDate? = null,
+    onSelectedDateChanged: (LocalDate?) -> Unit = {},
     onShownColorChanged: (Color) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -109,7 +111,11 @@ fun AsiTrendChart(
 
     var rangeStart by remember(points.size) { mutableStateOf(asiStartIndexForLastDays(points, ASI_DEFAULT_WINDOW_DAYS)) }
     var selectedRangeLabel by remember(points.size) { mutableStateOf<String?>(ASI_DEFAULT_RANGE_LABEL) }
-    var selectedIndex by remember(points.size) { mutableStateOf<Int?>(null) }
+    // Derived from the shared [selectedDate] (see ChartsScreen) rather than its own local state,
+    // so dragging on any of the three Charts-tab charts moves this one's own selection line too.
+    // Falls back to "nothing selected" (-> show latest) if that date isn't one of this chart's
+    // own points -- e.g. ASI's own history can start later than HRV/RHR's.
+    val selectedIndex = selectedDate?.let { d -> points.indexOfFirst { it.date == d } }?.takeIf { it >= 0 }
     val rangeEnd = points.lastIndex
 
     Column(modifier = modifier) {
@@ -123,7 +129,7 @@ fun AsiTrendChart(
                 AsiRangePresets(selectedRangeLabel) { label, days ->
                     rangeStart = if (days == null) 0 else asiStartIndexForLastDays(points, days)
                     selectedRangeLabel = label
-                    selectedIndex = null
+                    onSelectedDateChanged(null)
                 }
             }
         }
@@ -160,7 +166,7 @@ fun AsiTrendChart(
             startIndex = rangeStart,
             endIndex = rangeEnd,
             selectedIndex = selectedIndex,
-            onSelect = { selectedIndex = it },
+            onSelect = { idx -> onSelectedDateChanged(points[idx].date) },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3.0f),

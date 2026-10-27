@@ -131,6 +131,8 @@ fun rhrWithinNormalRange(points: List<DailyRhrPoint>, index: Int): Boolean? {
 @Composable
 fun RhrTrendChart(
     points: List<DailyRhrPoint>,
+    selectedDate: LocalDate? = null,
+    onSelectedDateChanged: (LocalDate?) -> Unit = {},
     onShownColorChanged: (Color) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -138,7 +140,9 @@ fun RhrTrendChart(
 
     var rangeStart by remember(points.size) { mutableStateOf(rhrStartIndexForLastDays(points, RHR_DEFAULT_WINDOW_DAYS)) }
     var selectedRangeLabel by remember(points.size) { mutableStateOf<String?>(RHR_DEFAULT_RANGE_LABEL) }
-    var selectedIndex by remember(points.size) { mutableStateOf<Int?>(null) }
+    // Derived from the shared [selectedDate] (see ChartsScreen) rather than its own local state,
+    // so dragging on any of the three Charts-tab charts moves this one's own selection line too.
+    val selectedIndex = selectedDate?.let { d -> points.indexOfFirst { it.date == d } }?.takeIf { it >= 0 }
     val rangeEnd = points.lastIndex
 
     Column(modifier = modifier) {
@@ -155,7 +159,7 @@ fun RhrTrendChart(
                 RhrRangePresets(selectedRangeLabel) { label, days ->
                     rangeStart = if (days == null) 0 else rhrStartIndexForLastDays(points, days)
                     selectedRangeLabel = label
-                    selectedIndex = null
+                    onSelectedDateChanged(null)
                 }
             }
         }
@@ -210,7 +214,7 @@ fun RhrTrendChart(
             startIndex = rangeStart,
             endIndex = rangeEnd,
             selectedIndex = selectedIndex,
-            onSelect = { selectedIndex = it },
+            onSelect = { idx -> onSelectedDateChanged(points[idx].date) },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3.0f),
